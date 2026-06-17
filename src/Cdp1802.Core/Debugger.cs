@@ -13,6 +13,8 @@ public class Debugger
 
     public bool IsBreakpointHit { get; private set; }
     public int StepCount { get; private set; }
+    public bool TraceEnabled => _traceEnabled;
+    public IReadOnlyCollection<ushort> Breakpoints => _breakpoints;
 
     public Debugger(Cdp1802 cpu)
     {

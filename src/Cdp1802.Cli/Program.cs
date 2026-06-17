@@ -15,11 +15,13 @@ public class Program
         var gpio = new Gpio();
         var timer = new Timer();
         var pixie = new Cdp1861(cpu, highRes: false);
+        var keyboard = new Cdp1851();
 
         cpu.RegisterPeripheral(uart);
         cpu.RegisterPeripheral(gpio);
         cpu.RegisterPeripheral(timer);
         cpu.RegisterPeripheral(pixie);
+        cpu.RegisterPeripheral(keyboard);
 
         var dbg = new Debugger(cpu);
         var scrt = new Scrt(cpu);
@@ -29,6 +31,7 @@ public class Program
         Console.WriteLine($"  Timer   @ 0x{timer.BaseAddress:X4} ({timer.Size} bytes)");
         Console.WriteLine($"  GPIO    @ 0x{gpio.BaseAddress:X4} ({gpio.Size} bytes)");
         Console.WriteLine($"  Pixie   @ 0x{pixie.BaseAddress:X4} ({pixie.Size} bytes)");
+        Console.WriteLine($"  Keyboard @ 0x{keyboard.BaseAddress:X4} ({keyboard.Size} bytes)");
         Console.WriteLine();
 
         // Initialize SCRT
@@ -48,7 +51,20 @@ public class Program
         cpu.Memory[0x0002] = 0x50; // STR R0
         cpu.Memory[0x0003] = 0xC4; // NOP
 
-        // Add breakpoint
+        // Start interactive debugger if no args, otherwise run demo
+        if (args.Length > 0 && args[0] == "--demo")
+        {
+            RunDemo(cpu, dbg);
+        }
+        else
+        {
+            var interactive = new InteractiveDebugger(cpu, dbg, scrt, uart, gpio, timer, pixie, keyboard);
+            interactive.Run();
+        }
+    }
+
+    private static void RunDemo(Core.Cdp1802 cpu, Debugger dbg)
+    {
         dbg.AddBreakpoint(0x0002);
         dbg.SetTrace(true);
 
