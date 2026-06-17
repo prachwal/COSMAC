@@ -1046,6 +1046,194 @@ public class InstructionTests
 
     #endregion
 
+    #region DMA Operations
+
+    [Fact]
+    public void DMA_In_WritesToMemory()
+    {
+        // Arrange
+        _cpu.R[0] = 0x1000;
+        _cpu.DmaDataIn = 0xAB;
+        _cpu.DmaInRequest = true;
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(0xAB, _cpu.Memory[0x1000]);
+        Assert.Equal((ushort)0x1001, _cpu.R[0]); // R0 incremented
+        Assert.False(_cpu.DmaInRequest); // Request cleared
+    }
+
+    [Fact]
+    public void DMA_Out_ReadsFromMemory()
+    {
+        // Arrange
+        _cpu.R[0] = 0x1000;
+        _cpu.Memory[0x1000] = 0xCD;
+        _cpu.DmaOutRequest = true;
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(0xCD, _cpu.DmaDataOut);
+        Assert.Equal((ushort)0x1001, _cpu.R[0]); // R0 incremented
+        Assert.False(_cpu.DmaOutRequest); // Request cleared
+    }
+
+    [Fact]
+    public void DMA_In_HasPriorityOverDMA_Out()
+    {
+        // Arrange
+        _cpu.R[0] = 0x1000;
+        _cpu.DmaDataIn = 0x11;
+        _cpu.DmaInRequest = true;
+        _cpu.DmaOutRequest = true;
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(0x11, _cpu.Memory[0x1000]); // DMA-In happened
+        Assert.True(_cpu.DmaOutRequest); // DMA-Out still pending
+    }
+
+    [Fact]
+    public void DMA_In_Takes8Cycles()
+    {
+        // Arrange
+        _cpu.R[0] = 0x1000;
+        _cpu.DmaDataIn = 0x11;
+        _cpu.DmaInRequest = true;
+        ulong cyclesBefore = _cpu.TotalCycles;
+
+        // Act
+        _cpu.Step();
+
+        // Assert - 2 cycles (instruction) + 8 cycles (DMA)
+        Assert.Equal(cyclesBefore + 10, _cpu.TotalCycles);
+    }
+
+    #endregion
+
+    #region Interrupt Handling
+
+    [Fact]
+    public void Interrupt_JumpsToR1()
+    {
+        // Arrange
+        _cpu.P = 0;
+        _cpu.X = 3;
+        _cpu.IE = true;
+        _cpu.R[1] = 0x2000; // ISR address
+        _cpu.InterruptRequest = true;
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x2000, _cpu.R[_cpu.P]); // PC = R[1]
+        Assert.Equal(2, _cpu.X); // X = 2
+        Assert.False(_cpu.IE); // IE disabled
+    }
+
+    [Fact]
+    public void Interrupt_SavesStateToT()
+    {
+        // Arrange
+        _cpu.P = 5;
+        _cpu.X = 3;
+        _cpu.IE = true;
+        _cpu.InterruptRequest = true;
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((byte)((3 << 4) | 5), _cpu.T); // T = (X << 4) | P
+    }
+
+    [Fact]
+    public void Interrupt_NotTriggeredWhenIEDisabled()
+    {
+        // Arrange
+        _cpu.P = 0;
+        _cpu.IE = false;
+        _cpu.InterruptRequest = true;
+        ulong cyclesBefore = _cpu.TotalCycles;
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0000, _cpu.R[_cpu.P]); // PC unchanged
+        Assert.False(_cpu.IE); // IE still disabled
+    }
+
+    [Fact]
+    public void Interrupt_DMAHasPriority()
+    {
+        // Arrange
+        _cpu.P = 0;
+        _cpu.R[0] = 0x1000;
+        _cpu.DmaDataIn = 0x11;
+        _cpu.DmaInRequest = true;
+        _cpu.IE = true;
+        _cpu.InterruptRequest = true;
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(0x11, _cpu.Memory[0x1000]); // DMA-In happened
+        Assert.True(_cpu.IE); // IE still enabled (interrupt not taken)
+    }
+
+    [Fact]
+    public void RET_RestoresInterruptState()
+    {
+        // Arrange
+        _cpu.P = 14;
+        _cpu.X = 0;
+        _cpu.R[14] = 0x0000; // PC points here
+        _cpu.R[0] = 0x1000;
+        _cpu.Memory[0x1000] = 0x35; // T value: X=3, P=5
+        _cpu.IE = false;
+
+        // Act - RET instruction (0x70)
+        _cpu.Memory[0x0000] = 0x70;
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(3, _cpu.X);
+        Assert.Equal(5, _cpu.P);
+        Assert.True(_cpu.IE);
+    }
+
+    [Fact]
+    public void DIS_DisablesInterrupts()
+    {
+        // Arrange
+        _cpu.P = 14;
+        _cpu.X = 0;
+        _cpu.R[14] = 0x0000;
+        _cpu.R[0] = 0x1000;
+        _cpu.Memory[0x1000] = 0x35; // T value: X=3, P=5
+        _cpu.IE = true;
+
+        // Act - DIS instruction (0x71)
+        _cpu.Memory[0x0000] = 0x71;
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(3, _cpu.X);
+        Assert.Equal(5, _cpu.P);
+        Assert.False(_cpu.IE); // IE disabled
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private void WriteOpcodeToMemory(params byte[] opcodes)
