@@ -1,0 +1,507 @@
+using Cdp1802.Core;
+
+namespace Cdp1802.Tests;
+
+/// <summary>
+/// Testy instrukcji procesora CDP1802 (TDD - RED phase).
+/// Każda instrukcja powinna mieć test przed implementacją.
+/// </summary>
+public class InstructionTests
+{
+    private readonly Cdp1802.Core.Cdp1802 _cpu;
+
+    public InstructionTests()
+    {
+        _cpu = new Cdp1802.Core.Cdp1802();
+        _cpu.Reset();
+    }
+
+    #region Reset Behavior
+
+    [Fact]
+    public void Reset_AllFlagsAndRegistersZeroed()
+    {
+        // Arrange & Act
+        _cpu.Reset();
+
+        // Assert
+        Assert.Equal(0, _cpu.D);
+        Assert.False(_cpu.DF);
+        Assert.Equal(0, _cpu.P);
+        Assert.Equal(0, _cpu.X);
+        Assert.Equal(0, _cpu.T);
+        Assert.False(_cpu.Q);
+        Assert.True(_cpu.IE);
+        Assert.Equal(0UL, _cpu.TotalCycles);
+    }
+
+    [Fact]
+    public void Reset_AllRegistersZeroed()
+    {
+        // Arrange & Act
+        _cpu.Reset();
+
+        // Assert
+        for (int i = 0; i < 16; i++)
+        {
+            Assert.Equal(0, _cpu.R[i]);
+        }
+    }
+
+    [Fact]
+    public void Reset_MemoryZeroed()
+    {
+        // Arrange
+        _cpu.Memory[0x1000] = 0xFF;
+
+        // Act
+        _cpu.Reset();
+
+        // Assert
+        Assert.Equal(0x00, _cpu.Memory[0x1000]);
+    }
+
+    #endregion
+
+    #region Register Operations (INC/DEC)
+
+    [Theory]
+    [InlineData(0x10, 0)] // INC R0
+    [InlineData(0x11, 1)] // INC R1
+    [InlineData(0x12, 2)] // INC R2
+    [InlineData(0x1F, 15)] // INC RF
+    public void INC_IncrementsRegister(byte opcode, int registerIndex)
+    {
+        // Arrange
+        _cpu.R[registerIndex] = 0x1234;
+        WriteOpcodeToMemory(opcode);
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x1235, _cpu.R[registerIndex]);
+        Assert.Equal(2UL, _cpu.TotalCycles);
+    }
+
+    [Theory]
+    [InlineData(0x20, 0)] // DEC R0
+    [InlineData(0x21, 1)] // DEC R1
+    [InlineData(0x22, 2)] // DEC R2
+    [InlineData(0x2F, 15)] // DEC RF
+    public void DEC_DecrementsRegister(byte opcode, int registerIndex)
+    {
+        // Arrange
+        _cpu.R[registerIndex] = 0x1234;
+        WriteOpcodeToMemory(opcode);
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x1233, _cpu.R[registerIndex]);
+        Assert.Equal(2UL, _cpu.TotalCycles);
+    }
+
+    [Fact]
+    public void INC_WrapsAroundAtFFFF()
+    {
+        // Arrange
+        _cpu.R[0] = 0xFFFF;
+        WriteOpcodeToMemory(0x10); // INC R0
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(0x0000, _cpu.R[0]);
+    }
+
+    [Fact]
+    public void DEC_WrapsAroundAtZero()
+    {
+        // Arrange
+        _cpu.R[0] = 0x0000;
+        WriteOpcodeToMemory(0x20); // DEC R0
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(0xFFFF, _cpu.R[0]);
+    }
+
+    #endregion
+
+    #region Load/Store Operations (LDI, GLO, GHI, PLO, PHI)
+
+    [Fact]
+    public void LDI_LoadsImmediateValue()
+    {
+        // Arrange
+        WriteOpcodeToMemory(0xF8, 0x42); // LDI 0x42
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(0x42, _cpu.D);
+        Assert.Equal((ushort)0x0002, _cpu.R[_cpu.P]); // PC advanced by 2
+    }
+
+    [Fact]
+    public void GLO_GetLowByteOfRegister()
+    {
+        // Arrange
+        _cpu.R[3] = 0xABCD;
+        WriteOpcodeToMemory(0x83); // GLO R3
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(0xCD, _cpu.D);
+    }
+
+    [Fact]
+    public void GHI_GetHighByteOfRegister()
+    {
+        // Arrange
+        _cpu.R[3] = 0xABCD;
+        WriteOpcodeToMemory(0x93); // GHI R3
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(0xAB, _cpu.D);
+    }
+
+    [Fact]
+    public void PLO_PutsLowByteToRegister()
+    {
+        // Arrange
+        _cpu.D = 0xCD;
+        WriteOpcodeToMemory(0xA3); // PLO R3
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(0x00CD, _cpu.R[3]);
+    }
+
+    [Fact]
+    public void PHI_PutsHighByteToRegister()
+    {
+        // Arrange
+        _cpu.D = 0xAB;
+        WriteOpcodeToMemory(0xB3); // PHI R3
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(0xAB00, _cpu.R[3]);
+    }
+
+    #endregion
+
+    #region SEP/SEX
+
+    [Fact]
+    public void SEP_ChangesProgramCounter()
+    {
+        // Arrange
+        WriteOpcodeToMemory(0xD5); // SEP R5
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(5, _cpu.P);
+    }
+
+    [Fact]
+    public void SEX_ChangesDataPointer()
+    {
+        // Arrange
+        WriteOpcodeToMemory(0xE7); // SEX R7
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(7, _cpu.X);
+    }
+
+    #endregion
+
+    #region Memory Reference Operations
+
+    [Fact]
+    public void LDX_LoadsFromMemoryViaX()
+    {
+        // Arrange
+        _cpu.X = 3;
+        _cpu.R[3] = 0x1000;
+        _cpu.Memory[0x1000] = 0x42;
+        WriteOpcodeToMemory(0xF0); // LDX
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(0x42, _cpu.D);
+    }
+
+    [Fact]
+    public void LDXA_LoadsAndIncrementsX()
+    {
+        // Arrange
+        _cpu.X = 3;
+        _cpu.R[3] = 0x1000;
+        _cpu.Memory[0x1000] = 0x42;
+        WriteOpcodeToMemory(0x72); // LDXA
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(0x42, _cpu.D);
+        Assert.Equal(0x1001, _cpu.R[3]);
+    }
+
+    [Fact]
+    public void STR_StoresDToMemory()
+    {
+        // Arrange
+        _cpu.X = 3;
+        _cpu.R[3] = 0x1000;
+        _cpu.D = 0x42;
+        WriteOpcodeToMemory(0x53); // STR R3
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(0x42, _cpu.Memory[0x1000]);
+    }
+
+    [Fact]
+    public void STXD_StoresAndDecrementsX()
+    {
+        // Arrange
+        _cpu.X = 3;
+        _cpu.R[3] = 0x1000;
+        _cpu.D = 0x42;
+        WriteOpcodeToMemory(0x73); // STXD
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(0x42, _cpu.Memory[0x1000]);
+        Assert.Equal(0x0FFF, _cpu.R[3]);
+    }
+
+    #endregion
+
+    #region Arithmetic & Logic
+
+    [Theory]
+    [InlineData(0x00, 0x00, 0x00, false)] // 0 + 0 = 0
+    [InlineData(0x01, 0x01, 0x02, false)] // 1 + 1 = 2
+    [InlineData(0xFF, 0x01, 0x00, true)]  // 255 + 1 = 0 (carry)
+    [InlineData(0x80, 0x80, 0x00, true)]  // 128 + 128 = 0 (carry)
+    public void ADD_AddsDPlusMemory(byte d, byte mem, byte expected, bool expectedDf)
+    {
+        // Arrange
+        _cpu.D = d;
+        _cpu.X = 0;
+        _cpu.R[0] = 0x1000;
+        _cpu.Memory[0x1000] = mem;
+        WriteOpcodeToMemory(0xF4); // ADD
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(expected, _cpu.D);
+        Assert.Equal(expectedDf, _cpu.DF);
+    }
+
+    [Theory]
+    [InlineData(0x00, 0x00, 0x00, true)]  // 0 - 0 = 0 (no borrow)
+    [InlineData(0x01, 0x01, 0x00, true)]  // 1 - 1 = 0 (no borrow)
+    [InlineData(0x01, 0x00, 0xFF, false)] // 0 - 1 = 255 (borrow)
+    public void SUB_SubtractsDFromMemory(byte d, byte mem, byte expected, bool expectedDf)
+    {
+        // Arrange
+        _cpu.D = d;
+        _cpu.X = 0;
+        _cpu.R[0] = 0x0100;
+        _cpu.Memory[0x0100] = mem;
+        WriteOpcodeToMemory(0xF5); // SUB: D ← M[R(X)] - D
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(expected, _cpu.D);
+        Assert.Equal(expectedDf, _cpu.DF);
+    }
+
+    [Theory]
+    [InlineData(0x0F, 0xF0, 0xFF)] // OR: 0x0F | 0xF0 = 0xFF
+    [InlineData(0x0F, 0x0F, 0x0F)] // AND: 0x0F & 0x0F = 0x0F
+    [InlineData(0x0F, 0xFF, 0xF0)] // XOR: 0x0F ^ 0xFF = 0xF0
+    public void LogicOperations(byte d, byte mem, byte expected)
+    {
+        // Arrange
+        _cpu.D = d;
+        _cpu.X = 0;
+        _cpu.R[0] = 0x1000;
+        _cpu.Memory[0x1000] = mem;
+
+        // Test OR (0xF1)
+        WriteOpcodeToMemory(0xF1);
+        _cpu.Step();
+        Assert.Equal((byte)(d | mem), _cpu.D);
+    }
+
+    #endregion
+
+    #region Branch Instructions
+
+    [Fact]
+    public void BR_UnconditionalBranch()
+    {
+        // Arrange
+        WriteOpcodeToMemory(0x30, 0x00); // BR 0x00 (jump to address 0x00 in current page)
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0000, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void BZ_BranchIfZero()
+    {
+        // Arrange
+        _cpu.D = 0x00;
+        WriteOpcodeToMemory(0x32, 0x00); // BZ 0x00
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0000, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void BZ_NoBranchIfNotZero()
+    {
+        // Arrange
+        _cpu.D = 0x01;
+        WriteOpcodeToMemory(0x32, 0x00); // BZ 0x00
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0002, _cpu.R[_cpu.P]); // PC advanced by 2 (no branch)
+    }
+
+    [Fact]
+    public void BNZ_BranchIfNotZero()
+    {
+        // Arrange
+        _cpu.D = 0x01;
+        WriteOpcodeToMemory(0x3A, 0x00); // BNZ 0x00
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0000, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void LBR_LongBranch()
+    {
+        // Arrange
+        WriteOpcodeToMemory(0xC0, 0x00, 0x20); // LBR 0x2000
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x2000, _cpu.R[_cpu.P]);
+        Assert.Equal(3UL, _cpu.TotalCycles); // Long branch = 3 cycles
+    }
+
+    [Fact]
+    public void NOP_NoOperation()
+    {
+        // Arrange
+        WriteOpcodeToMemory(0xC4); // NOP
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0003, _cpu.R[_cpu.P]); // PC advanced by 3
+        Assert.Equal(3UL, _cpu.TotalCycles);
+    }
+
+    #endregion
+
+    #region Cycle Counting
+
+    [Fact]
+    public void Step_NormalInstructionTwoCycles()
+    {
+        // Arrange
+        WriteOpcodeToMemory(0x10); // INC R0
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(2UL, _cpu.TotalCycles);
+    }
+
+    [Fact]
+    public void Step_LongBranchThreeCycles()
+    {
+        // Arrange
+        WriteOpcodeToMemory(0xC0, 0x00, 0x00); // LBR
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(3UL, _cpu.TotalCycles);
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    private void WriteOpcodeToMemory(params byte[] opcodes)
+    {
+        // Use a separate register (R14) as PC for instruction, so it doesn't collide with R[X] data
+        _cpu.P = 14;
+        _cpu.R[14] = 0x0000;
+        ushort address = (ushort)_cpu.R[14];
+        for (int i = 0; i < opcodes.Length; i++)
+        {
+            _cpu.Memory[address + i] = opcodes[i];
+        }
+    }
+
+    #endregion
+}

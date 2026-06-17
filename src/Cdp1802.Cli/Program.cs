@@ -50,16 +50,19 @@ public class Program
             throw new Exception("Błąd: IPeripheral nie działa poprawnie");
         Console.WriteLine("OK");
 
-        // Test 7: Step() rzuca NotImplementedException
-        Console.Write("Test 7: Step() NotImplementedException... ");
+        // Test 7: Step() works
+        Console.Write("Test 7: Step() executes... ");
         try
         {
+            cpu.Memory[0] = 0xC4; // NOP
             cpu.Step();
-            throw new Exception("Błąd: Step() powinien rzucać NotImplementedException");
+            if (cpu.TotalCycles != 3)
+                throw new Exception("Błąd: Step() niepoprawnie liczy cykle");
+            Console.WriteLine("OK");
         }
         catch (NotImplementedException)
         {
-            Console.WriteLine("OK");
+            throw new Exception("Błąd: Step() powinien być zaimplementowany");
         }
 
         Console.WriteLine();

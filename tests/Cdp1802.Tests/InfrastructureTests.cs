@@ -50,10 +50,12 @@ public class InfrastructureTests
     }
 
     [Fact]
-    public void Cdp1802_Step_ThrowsNotImplemented()
+    public void Cdp1802_Step_ExecutesInstruction()
     {
         var cpu = new Core.Cdp1802();
-        Assert.Throws<NotImplementedException>(() => cpu.Step());
+        cpu.Memory[0] = 0xC4; // NOP
+        cpu.Step();
+        Assert.Equal(3UL, cpu.TotalCycles);
     }
 
     [Fact]

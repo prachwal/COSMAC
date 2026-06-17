@@ -144,13 +144,53 @@ Dlatego emulator powinien spełniać następujące wymagania:
 
 | Opcode | Mnemonic | Opis                              | Cykle | Uwagi |
 |--------|----------|-----------------------------------|-------|-------|
+| 00     | IDL      | Czekaj na interrupt lub DMA       | 2     | Blokuje procesor |
 | D0–DF  | SEP      | P ← N                             | 2     | Zmiana PC |
 | E0–EF  | SEX      | X ← N                             | 2     | Zmiana wskaźnika danych |
-| 68     | —        | (zarezerwowane / rozszerzenia)    | —     | — |
 | 60     | IRX      | R(X)++                            | 2     | — |
-| 7X     | OUT / INP| Wyjście / Wejście                 | 2     | N = port |
+| 61–67  | OUT p    | BUS ← M(R(X)); R(X)++            | 2     | p = port (1-7) |
+| 69–6F  | IN p     | D ← M(R(X)) ← BUS                | 2     | p = port (1-7) |
+| 70     | RET      | X:P ← M(R(X)); R(X)++; IE ← 1   | 2     | Powrót z przerwania |
+| 71     | DIS      | X:P ← M(R(X)); R(X)++; IE ← 0   | 2     | Wyłącz przerwania |
+| 72     | LDXA     | D ← M(R(X)); R(X)++              | 2     | — |
+| 73     | STXD     | M(R(X)) ← D; R(X)--              | 2     | — |
+| 74     | ADC      | DF:D ← D + M(R(X)) + DF          | 2     | Z przeniesieniem |
+| 75     | SDB      | DF:D ← M(R(X)) - D - ~DF         | 2     | — |
+| 76     | SHRC     | DF:D ← D >> 1 (z Carry)          | 2     | Shift Right with Carry |
+| 77     | SMB      | DF:D ← D - M(R(X)) - ~DF         | 2     | — |
+| 78     | SAV      | M(R(X)) ← T                      | 2     | Zapisz T do pamięci |
+| 79     | MARK     | M(R(2)) ← T ← X:P; X ← P; R(2)--| 2     | Zapisz stan na stack |
+| 7A     | SEQ      | Q ← 1                            | 2     | Ustaw wyjście Q |
+| 7B     | REQ      | Q ← 0                            | 2     | Wyłącz wyjście Q |
+| 7C     | ADCI imm | DF:D ← D + imm + DF              | 2     | Add with Carry Immediate |
+| 7D     | SDBI imm | DF:D ← imm - D - ~DF             | 2     | Subtract D Immediate with Borrow |
+| 7E     | SHLC     | DF:D ← D << 1 (z Carry)          | 2     | Shift Left with Carry |
+| 7F     | SMBI imm | DF:D ← D - imm - ~DF             | 2     | Subtract Immediate with Borrow |
 
-**Uwaga:** Pełna lista wszystkich wariantów (szczególnie z N) znajduje się w oficjalnym datasheetcie CDP1802.
+#### G. Shift and Rotate Instructions
+
+| Opcode | Mnemonic | Opis                              | Cykle | Flagi |
+|--------|----------|-----------------------------------|-------|-------|
+| F6     | SHR      | DF ← D0; D0-6 ← D1-7; D7 ← 0   | 2     | DF    |
+| FE     | SHL      | DF ← D7; D1-7 ← D0-6; D0 ← 0   | 2     | DF    |
+| 76     | SHRC     | D0-6 ← D1-7; D7 ← DF; DF ← D0  | 2     | DF    |
+| 7E     | SHLC     | D1-7 ← D0-6; D0 ← DF; DF ← D7  | 2     | DF    |
+
+#### H. Special Instructions
+
+| Opcode | Mnemonic | Opis                              | Cykle | Uwagi |
+|--------|----------|-----------------------------------|-------|-------|
+| 00     | IDL      | Czekaj na interrupt lub DMA       | 2     | Procesor czeka |
+| 78     | SAV      | M(R(X)) ← T                      | 2     | Zapisz rejestr T |
+| 79     | MARK     | M(R(2)) ← T ← X:P; X ← P        | 2     | Zapisz stan programu |
+| 7A     | SEQ      | Q ← 1                            | 2     | Ustaw wyjście Q |
+| 7B     | REQ      | Q ← 0                            | 2     | Wyłącz wyjście Q |
+
+**Uwagi:**
+- IDL blokuje procesor do momentu wystąpienia DMA lub interrupt
+- SAV jest używany w obsłudze przerwań do zapisania stanu
+- MARK tworzy zapis stanu na stosie (R2)
+- SEQ/REQ kontrolują jednobitowe wyjście Q (np. LED, sygnał sterujący)
 
 ---
 
@@ -681,6 +721,42 @@ Oprogramowanie często czyta ten rejestr na początku pętli głównej lub w prz
 - DMA warto zaimplementować wcześnie, bo jest naturalną cechą CDP1802.
 - Wszystkie peryferia powinny być memory-mapped (łatwiej debugować i rozszerzać).
 - Warto przygotować interfejs `IPeripheral`, żeby później łatwo dodawać nowe urządzenia.
+
+---
+
+## 8. Materiały referencyjne
+
+### 8.1 Pobrane datasheety i manuals
+
+W katalogu `docs/reference/` znajdują się oficjalne dokumentacjetechniczne:
+
+| Plik | Opis | Źródło |
+|------|------|--------|
+| `CDP1802_RCA_Datasheet.pdf` | Oryginalny datasheet RCA (1979) | cosmacelf.com |
+| `CDP1802A_Intersil_Datasheet.pdf` | Datasheet Intersil/Renesas (nowszy) | cosmacelf.com |
+| `CDP1802_User_Manual_MPM-201A.pdf` | Podręcznik użytkownika RCA (1976) | bitsavers.org |
+
+### 8.2 Kluczowe informacje z datasheetów
+
+**Specyfikacja elektryczna:**
+- Napięcie zasilania: 4V – 10.5V (CDP1802), 4V – 6.5V (CDP1802C/AC/BC)
+- Częstotliwość zegara: do 3.2 MHz @ 5V (CDP1802A/AC), do 5.0 MHz @ 5V (CDP1802BC)
+- Czas wykonania instrukcji: 2.5–3.75 µs @ 10V, 5.0–7.5 µs @ 5V
+- Obudowa: 40-pin DIP lub 44-pin PLCC
+
+**91 instrukcja** w tym:
+- 20 instrukcji Memory Reference
+- 16 instrukcji Register Operations
+- 28 instrukcji Logic/Arithmetic
+- 16 instrukcji Branch (short + long)
+- 11 instrukcji Control/Shift/Special
+
+### 8.3 Zewnętrzne zasoby
+
+- [COSMAC ELF Community](http://www.cosmacelf.com/) – datasheety, forum, projekty
+- [RCA 1802 - Wikipedia](https://en.wikipedia.org/wiki/RCA_1802) – historia, architektura
+- [COSMAC ELF Forum](https://groups.io/g/cosmacelf) – aktywna społeczność
+- [Archive.org - User Manual](https://archive.org/details/user-manual-for-the-cdp-1802-cosmac-microprocessor-mpm-201-a) – pełny podręcznik
 
 ---
 

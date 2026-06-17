@@ -147,3 +147,5 @@ nCrunchTemp_*
 
 # JetBrains Rider
 *.sln.iml
+
+.venv-pdf
