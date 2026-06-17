@@ -163,8 +163,8 @@ public class InteractiveDebugger
     private void IOStatus()
     {
         Console.WriteLine($"  UART TX: 0x{_uart.LastTransmittedByte:X2} ({(_uart.HasTransmitted ? "sent" : "idle")})");
-        Console.WriteLine($"  GPIO out: 0x{_gpio.OutputValue:X2}  dir: 0x{_gpio.DirectionValue:X2}");
-        Console.WriteLine($"  Timer: counter={_timer.Counter} compare={_timer.Compare}");
+        Console.WriteLine($"  GPIO out: 0x{_gpio.OutputValue:X2}  dir: 0x{_gpio.DirectionMask:X2}");
+        Console.WriteLine($"  Timer: counter={_timer.Counter} compare={_timer.CompareValue}");
         Console.WriteLine($"  Pixie: {(_pixie.Read(0x02) != 0 ? "ON" : "OFF")} ({_pixie.Width}x{_pixie.Height})");
         Console.WriteLine($"  Keyboard: {_keyboard.Count} keys buffered");
     }
