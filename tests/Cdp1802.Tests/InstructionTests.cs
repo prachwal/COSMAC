@@ -1234,6 +1234,50 @@ public class InstructionTests
 
     #endregion
 
+    #region Load Mode (DMA Bootloader)
+
+    [Fact]
+    public void LoadMode_WriteByteAtR0AndIncrements()
+    {
+        _cpu.R[0] = 0x1000;
+        _cpu.LoadByte(0x42);
+        Assert.Equal(0x42, _cpu.Memory[0x1000]);
+        Assert.Equal((ushort)0x1001, _cpu.R[0]);
+    }
+
+    [Fact]
+    public void LoadMode_LoadBlock()
+    {
+        _cpu.R[0] = 0x1000;
+        byte[] data = { 0x11, 0x22, 0x33 };
+        _cpu.LoadBlock(data);
+        Assert.Equal(0x11, _cpu.Memory[0x1000]);
+        Assert.Equal(0x22, _cpu.Memory[0x1001]);
+        Assert.Equal(0x33, _cpu.Memory[0x1002]);
+        Assert.Equal((ushort)0x1003, _cpu.R[0]);
+    }
+
+    [Fact]
+    public void LoadMode_LoadProgramSetsPC()
+    {
+        byte[] program = { 0xF8, 0x42, 0xC4 };
+        _cpu.LoadProgram(0x0000, program);
+        Assert.Equal(0xF8, _cpu.Memory[0x0000]);
+        Assert.Equal(0x42, _cpu.Memory[0x0001]);
+        Assert.Equal((ushort)0x0000, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void LoadMode_ExecutionAfterLoad()
+    {
+        byte[] program = { 0xF8, 0x42 };
+        _cpu.LoadProgram(0x0000, program);
+        _cpu.Step();
+        Assert.Equal(0x42, _cpu.D);
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private void WriteOpcodeToMemory(params byte[] opcodes)

@@ -182,6 +182,26 @@ public class InfrastructureTests
         Assert.True(cpu.IsHalted);
         Assert.Equal(0x42, cpu.D);
     }
+
+    [Fact]
+    public void MachineState_TracksS0AfterStep()
+    {
+        var cpu = new Core.Cdp1802();
+        cpu.Memory[0] = 0xC4; // NOP
+        cpu.Step();
+        Assert.Equal(MachineState.S0_Fetch, cpu.State);
+    }
+
+    [Fact]
+    public void LoadMode_WorksInClearState()
+    {
+        var cpu = new Core.Cdp1802();
+        cpu.ClearPin = false;
+        cpu.Step(); // Reset
+        cpu.R[0] = 0x1000;
+        cpu.LoadByte(0x42);
+        Assert.Equal(0x42, cpu.Memory[0x1000]);
+    }
 }
 
 /// <summary>

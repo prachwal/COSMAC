@@ -40,6 +40,9 @@ public class Cdp1802
     public bool TpaPin { get; private set; }     // Timing Pulse A (high during S0)
     public bool TpbPin { get; private set; }     // Timing Pulse B (high during S2)
 
+    // Machine cycle state (S0-S3, 4 states per instruction)
+    public MachineState State { get; private set; }
+
     // Processor state
     public bool IsHalted { get; private set; }
 
@@ -89,6 +92,38 @@ public class Cdp1802
         _peripherals.Remove(peripheral);
     }
 
+    /// <summary>
+    /// Load mode: write byte to memory at R[0] and increment R[0].
+    /// Used for DMA bootloading (e.g., COSMAC Elf front panel).
+    /// Processor must be in CLEAR+WAIT state.
+    /// </summary>
+    public void LoadByte(byte data)
+    {
+        Memory[R[0]] = data;
+        R[0]++;
+        TotalCycles += 8; // One DMA cycle
+    }
+
+    /// <summary>
+    /// Load a block of data starting at the current R[0] address.
+    /// </summary>
+    public void LoadBlock(byte[] data)
+    {
+        foreach (byte b in data)
+            LoadByte(b);
+    }
+
+    /// <summary>
+    /// Load a program at a specific address.
+    /// Sets R[0] to the start address, loads data, then sets P to start address.
+    /// </summary>
+    public void LoadProgram(ushort address, byte[] program)
+    {
+        R[0] = address;
+        LoadBlock(program);
+        R[P] = address; // Set PC to start of program
+    }
+
     private IPeripheral? FindPeripheral(ushort address)
     {
         foreach (var p in _peripherals)
@@ -127,7 +162,8 @@ public class Cdp1802
         if (!ClearPin)
         {
             Reset();
-            ClearPin = true; // Auto-release after reset
+            ClearPin = true;
+            State = MachineState.S0_Fetch;
             return;
         }
 
@@ -135,7 +171,7 @@ public class Cdp1802
         if (WaitPin)
         {
             IsHalted = true;
-            TotalCycles += 1; // Clock still runs
+            TotalCycles += 1;
             return;
         }
 
@@ -148,22 +184,21 @@ public class Cdp1802
 
         IsHalted = false;
 
-        // Timing pins
-        TpaPin = true;  // S0 - address strobe
+        // S0: Fetch - place address on bus, latch opcode
+        State = MachineState.S0_Fetch;
+        TpaPin = true;
         TpbPin = false;
-
-        // Fetch opcode
         byte opcode = Memory[R[P]];
-        
-        // Execute
-        TpaPin = false;
-        TpbPin = true; // S1 - execute
 
+        // S1: Execute - decode and execute instruction
+        State = MachineState.S1_Execute;
+        TpaPin = false;
+        TpbPin = true;
         ExecuteInstruction(opcode);
 
+        // S3: Check DMA and Interrupts
+        State = MachineState.S3_DMA_Interrupt;
         TpbPin = false;
-        
-        // Check DMA and Interrupts after instruction
         CheckDmaAndInterrupts();
 
         // PAUSE takes effect after instruction completes
@@ -172,6 +207,8 @@ public class Cdp1802
             IsHalted = true;
             PausePin = false;
         }
+
+        State = MachineState.S0_Fetch;
     }
 
     private void ExecuteInstruction(byte opcode)
