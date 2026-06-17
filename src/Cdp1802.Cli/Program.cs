@@ -14,37 +14,54 @@ public class Program
         var uart = new Uart();
         var gpio = new Gpio();
         var timer = new Timer();
+        var pixie = new Cdp1861(cpu, highRes: false);
 
         cpu.RegisterPeripheral(uart);
         cpu.RegisterPeripheral(gpio);
         cpu.RegisterPeripheral(timer);
+        cpu.RegisterPeripheral(pixie);
 
-        // Demo program: LDI 0x41; NOP
-        cpu.Memory[0x0000] = 0xF8; // LDI
-        cpu.Memory[0x0001] = 0x41; // 'A'
-        cpu.Memory[0x0002] = 0xC4; // NOP
+        var dbg = new Debugger(cpu);
+        var scrt = new Scrt(cpu);
 
         Console.WriteLine("Registered peripherals:");
-        Console.WriteLine($"  UART  @ 0x{uart.BaseAddress:X4} ({uart.Size} bytes)");
-        Console.WriteLine($"  Timer @ 0x{timer.BaseAddress:X4} ({timer.Size} bytes)");
-        Console.WriteLine($"  GPIO  @ 0x{gpio.BaseAddress:X4} ({gpio.Size} bytes)");
+        Console.WriteLine($"  UART    @ 0x{uart.BaseAddress:X4} ({uart.Size} bytes)");
+        Console.WriteLine($"  Timer   @ 0x{timer.BaseAddress:X4} ({timer.Size} bytes)");
+        Console.WriteLine($"  GPIO    @ 0x{gpio.BaseAddress:X4} ({gpio.Size} bytes)");
+        Console.WriteLine($"  Pixie   @ 0x{pixie.BaseAddress:X4} ({pixie.Size} bytes)");
         Console.WriteLine();
 
-        Console.WriteLine("Execution trace:");
-        for (int i = 0; i < 3; i++)
-        {
-            ushort pc = cpu.R[cpu.P];
-            byte opcode = cpu.Memory[pc];
-            Console.Write($"  PC=0x{pc:X4}  opcode=0x{opcode:X2}  ");
-            cpu.Step();
-            Console.WriteLine($"D=0x{cpu.D:X2}  cycles={cpu.TotalCycles}");
-        }
+        // Initialize SCRT
+        Scrt.EmitCallRoutine(cpu, 0x4000);
+        Scrt.EmitReturnRoutine(cpu, 0x5000);
+        scrt.Initialize(0x4000, 0x5000);
 
+        Console.WriteLine("SCRT initialized:");
+        Console.WriteLine($"  R4 (call):  0x{cpu.R[4]:X4}");
+        Console.WriteLine($"  R5 (return): 0x{cpu.R[5]:X4}");
+        Console.WriteLine($"  R2 (stack):  0x{cpu.R[2]:X4}");
         Console.WriteLine();
-        Console.WriteLine("Peripheral state:");
-        Console.WriteLine($"  UART TX: 0x{uart.LastTransmittedByte:X2} (has transmitted: {uart.HasTransmitted})");
-        Console.WriteLine($"  GPIO output: 0x{gpio.OutputValue:X2}");
-        Console.WriteLine($"  Timer counter: {timer.Counter}");
+
+        // Demo program
+        cpu.Memory[0x0000] = 0xF8; // LDI
+        cpu.Memory[0x0001] = 0x41; // 'A'
+        cpu.Memory[0x0002] = 0x50; // STR R0
+        cpu.Memory[0x0003] = 0xC4; // NOP
+
+        // Add breakpoint
+        dbg.AddBreakpoint(0x0002);
+        dbg.SetTrace(true);
+
+        Console.WriteLine("Execution with debugger (breakpoint at 0x0002):");
+        int steps = dbg.Run(100);
+        Console.WriteLine($"  Stopped after {steps} steps (breakpoint hit)");
+        Console.WriteLine($"  Last 3 trace entries:");
+        for (int i = Math.Max(0, dbg.TraceLog.Count - 3); i < dbg.TraceLog.Count; i++)
+            Console.WriteLine($"    {dbg.TraceLog[i]}");
+        Console.WriteLine();
+
+        Console.WriteLine("Register dump:");
+        Console.Write(dbg.DumpRegisters());
 
         Console.WriteLine();
         Console.WriteLine("=== Demo complete! ===");
