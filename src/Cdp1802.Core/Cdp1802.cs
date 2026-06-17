@@ -125,44 +125,59 @@ public class Cdp1802
                 BNF();
                 break;
 
-            // 0x34: BQ - Branch if Q == 1
-            case 0x34:
+            // 0x31: BQ - Branch if Q == 1
+            case 0x31:
                 BQ();
                 break;
 
-            // 0x35: BNQ - Branch if Q == 0
-            case 0x35:
-                BNQ();
-                break;
-
-            // 0x38: B1 - Branch if EF1 == 1
-            case 0x38:
+            // 0x34: B1 - Branch if EF1 == 1
+            case 0x34:
                 B1();
                 break;
 
-            // 0x39: BN1 - Branch if EF1 == 0
-            case 0x39:
-                BN1();
-                break;
-
-            // 0x3C: B4 - Branch if EF4 == 1
-            case 0x3C:
-                B4();
-                break;
-
-            // 0x3D: BN4 - Branch if EF4 == 0
-            case 0x3D:
-                BN4();
-                break;
-
-            // 0x3E: B2 - Branch if EF2 == 1
-            case 0x3E:
+            // 0x35: B2 - Branch if EF2 == 1
+            case 0x35:
                 B2();
                 break;
 
-            // 0x3F: BN2 - Branch if EF2 == 0
-            case 0x3F:
+            // 0x36: B3 - Branch if EF3 == 1
+            case 0x36:
+                B3();
+                break;
+
+            // 0x37: B4 - Branch if EF4 == 1
+            case 0x37:
+                B4();
+                break;
+
+            // 0x38: SKP - Short skip (unconditional)
+            case 0x38:
+                SKP();
+                break;
+
+            // 0x39: BNQ - Branch if Q == 0
+            case 0x39:
+                BNQ();
+                break;
+
+            // 0x3C: BN1 - Branch if EF1 == 0
+            case 0x3C:
+                BN1();
+                break;
+
+            // 0x3D: BN2 - Branch if EF2 == 0
+            case 0x3D:
                 BN2();
+                break;
+
+            // 0x3E: BN3 - Branch if EF3 == 0
+            case 0x3E:
+                BN3();
+                break;
+
+            // 0x3F: BN4 - Branch if EF4 == 0
+            case 0x3F:
+                BN4();
                 break;
 
             // 0x4N: LDA - Load and advance
@@ -350,9 +365,14 @@ public class Cdp1802
                 LSNZ();
                 break;
 
-            // 0xC7: LBDF - Long branch if DF == 1
+            // 0xC7: LSNF - Long skip if DF == 0
             case 0xC7:
-                LBDF();
+                LSNF();
+                break;
+
+            // 0xCC: LSIE - Long skip if IE == 1
+            case 0xCC:
+                LSIE();
                 break;
 
             // 0xCE: LSZ - Long skip if D == 0
@@ -360,9 +380,9 @@ public class Cdp1802
                 LSZ();
                 break;
 
-            // 0xCF: LBNF - Long branch if DF == 0
+            // 0xCF: LSDF - Long skip if DF == 1
             case 0xCF:
-                LBNF();
+                LSDF();
                 break;
 
             // 0xDN: SEP - Set P
@@ -420,9 +440,39 @@ public class Cdp1802
                 LDI();
                 break;
 
+            // 0xF9: ORI - OR immediate
+            case 0xF9:
+                ORI();
+                break;
+
+            // 0xFA: ANI - AND immediate
+            case 0xFA:
+                ANI();
+                break;
+
+            // 0xFB: XRI - XOR immediate
+            case 0xFB:
+                XRI();
+                break;
+
+            // 0xFC: ADI - Add immediate
+            case 0xFC:
+                ADI();
+                break;
+
+            // 0xFD: SDI - Subtract D immediate
+            case 0xFD:
+                SDI();
+                break;
+
             // 0xFE: SHL - Shift left
             case 0xFE:
                 SHL();
+                break;
+
+            // 0xFF: SMI - Subtract memory immediate
+            case 0xFF:
+                SMI();
                 break;
 
             default:
@@ -660,6 +710,66 @@ public class Cdp1802
         TotalCycles += 2;
     }
 
+    private void ORI()
+    {
+        R[P]++;
+        byte imm = Memory[R[P]];
+        R[P]++;
+        D = (byte)(D | imm);
+        TotalCycles += 2;
+    }
+
+    private void ANI()
+    {
+        R[P]++;
+        byte imm = Memory[R[P]];
+        R[P]++;
+        D = (byte)(D & imm);
+        TotalCycles += 2;
+    }
+
+    private void XRI()
+    {
+        R[P]++;
+        byte imm = Memory[R[P]];
+        R[P]++;
+        D = (byte)(D ^ imm);
+        TotalCycles += 2;
+    }
+
+    private void ADI()
+    {
+        R[P]++;
+        byte imm = Memory[R[P]];
+        R[P]++;
+        int result = D + imm;
+        DF = result > 0xFF;
+        D = (byte)(result & 0xFF);
+        TotalCycles += 2;
+    }
+
+    private void SDI()
+    {
+        R[P]++;
+        byte imm = Memory[R[P]];
+        R[P]++;
+        int result = imm - D;
+        DF = result >= 0;
+        D = (byte)(result & 0xFF);
+        TotalCycles += 2;
+    }
+
+    private void SMI()
+    {
+        R[P]++;
+        byte imm = Memory[R[P]];
+        R[P]++;
+        int result = D - imm;
+        DF = result >= 0;
+        D = (byte)(result & 0xFF);
+        TotalCycles += 2;
+    }
+
     #endregion
 
     #region Branch Instructions (Short)
@@ -839,6 +949,41 @@ public class Cdp1802
         TotalCycles += 2;
     }
 
+    private void B3()
+    {
+        R[P]++;
+        if (EF3)
+        {
+            R[P] = (ushort)((R[P] & 0xFF00) | Memory[R[P]]);
+        }
+        else
+        {
+            R[P]++;
+        }
+        TotalCycles += 2;
+    }
+
+    private void BN3()
+    {
+        R[P]++;
+        if (!EF3)
+        {
+            R[P] = (ushort)((R[P] & 0xFF00) | Memory[R[P]]);
+        }
+        else
+        {
+            R[P]++;
+        }
+        TotalCycles += 2;
+    }
+
+    private void SKP()
+    {
+        R[P]++;
+        R[P]++;
+        TotalCycles += 2;
+    }
+
     #endregion
 
     #region Branch Instructions (Long)
@@ -989,6 +1134,33 @@ public class Cdp1802
     private void LSZ()
     {
         if (D == 0)
+        {
+            R[P] += 3;
+        }
+        TotalCycles += 3;
+    }
+
+    private void LSNF()
+    {
+        if (!DF)
+        {
+            R[P] += 3;
+        }
+        TotalCycles += 3;
+    }
+
+    private void LSDF()
+    {
+        if (DF)
+        {
+            R[P] += 3;
+        }
+        TotalCycles += 3;
+    }
+
+    private void LSIE()
+    {
+        if (IE)
         {
             R[P] += 3;
         }

@@ -48,7 +48,7 @@ dotnet run --project src/Cdp1802.Cli           # CLI
 - file-scoped namespaces
 
 ## Kluczowe typy
-- `Cdp1802` — Hauptklasa procesora (16 rejestrów R0-RF, D, DF, P, X, T, Q, IE)
+- `Cdp1802` — Hauptklasa procesora (16 rejestrów R0-RF, D, DF, P, X, T, Q, IE, EF1-EF4)
 - `MemoryBus` — 64KB pamięci
 - `IPeripheral` — interfejs dla urządzeń I/O
 
@@ -66,5 +66,5 @@ dotnet run --project src/Cdp1802.Cli           # CLI
 - [x] Infrastruktura (solution, projekty, .editorconfig, .gitignore)
 - [x] Stub Cdp1802, MemoryBus, IPeripheral
 - [x] Testy spójności (13 testów)
-- [ ] Implementacja procesora (TDD)
+- [x] Implementacja procesora - 91 instrukcji (105 testów)
 - [ ] Peryferia

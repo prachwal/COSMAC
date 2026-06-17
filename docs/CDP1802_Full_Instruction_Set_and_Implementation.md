@@ -61,24 +61,42 @@
 | Opcode | Mnemonic | Condition             | Cycles |
 |--------|----------|-----------------------|--------|
 | 30     | BR       | Unconditional         | 2      |
+| 31     | BQ       | Q == 1                | 2      |
 | 32     | BZ       | D == 0                | 2      |
-| 3A     | BNZ      | D != 0                | 2      |
 | 33     | BDF      | DF == 1               | 2      |
+| 34     | B1       | EF1 == 1              | 2      |
+| 35     | B2       | EF2 == 1              | 2      |
+| 36     | B3       | EF3 == 1              | 2      |
+| 37     | B4       | EF4 == 1              | 2      |
+| 38     | SKP      | Unconditional skip    | 2      |
+| 39     | BNQ      | Q == 0                | 2      |
+| 3A     | BNZ      | D != 0                | 2      |
 | 3B     | BNF      | DF == 0               | 2      |
-| 34     | BQ       | Q == 1                | 2      |
-| 35     | BNQ      | Q == 0                | 2      |
+| 3C     | BN1      | EF1 == 0              | 2      |
+| 3D     | BN2      | EF2 == 0              | 2      |
+| 3E     | BN3      | EF3 == 0              | 2      |
+| 3F     | BN4      | EF4 == 0              | 2      |
 
 ### 2.5 Long Branch / Long Skip (3 cycles)
 
 | Opcode | Mnemonic | Condition          | Cycles |
 |--------|----------|--------------------|--------|
 | C0     | LBR      | Unconditional      | 3      |
+| C1     | LBQ      | Q == 1             | 3      |
 | C2     | LBZ      | D == 0             | 3      |
-| CA     | LBNZ     | D != 0             | 3      |
 | C3     | LBDF     | DF == 1            | 3      |
-| CB     | LBNF     | DF == 0            | 3      |
 | C4     | NOP      | No operation       | 3      |
+| C5     | LSNQ     | Skip if Q == 0     | 3      |
+| C6     | LSNZ     | Skip if D != 0     | 3      |
+| C7     | LSNF     | Skip if DF == 0    | 3      |
 | C8     | LSKP     | Unconditional skip | 3      |
+| C9     | LBNQ     | Q == 0             | 3      |
+| CA     | LBNZ     | D != 0             | 3      |
+| CB     | LBNF     | DF == 0            | 3      |
+| CC     | LSIE     | Skip if IE == 1    | 3      |
+| CD     | LSQ      | Skip if Q == 1     | 3      |
+| CE     | LSZ      | Skip if D == 0     | 3      |
+| CF     | LSDF     | Skip if DF == 1    | 3      |
 
 ### 2.6 Control & I/O
 

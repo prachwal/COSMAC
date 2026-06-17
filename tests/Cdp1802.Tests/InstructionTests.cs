@@ -658,7 +658,7 @@ public class InstructionTests
     {
         // Arrange
         _cpu.EF1 = true;
-        WriteOpcodeToMemory(0x38, 0x00); // B1 0x00
+        WriteOpcodeToMemory(0x34, 0x00); // B1 0x00
 
         // Act
         _cpu.Step();
@@ -672,7 +672,7 @@ public class InstructionTests
     {
         // Arrange
         _cpu.EF1 = false;
-        WriteOpcodeToMemory(0x38, 0x50); // B1 0x50
+        WriteOpcodeToMemory(0x34, 0x50); // B1 0x50
 
         // Act
         _cpu.Step();
@@ -686,7 +686,7 @@ public class InstructionTests
     {
         // Arrange
         _cpu.EF1 = false;
-        WriteOpcodeToMemory(0x39, 0x00); // BN1 0x00
+        WriteOpcodeToMemory(0x3C, 0x00); // BN1 0x00
 
         // Act
         _cpu.Step();
@@ -700,7 +700,7 @@ public class InstructionTests
     {
         // Arrange
         _cpu.EF1 = true;
-        WriteOpcodeToMemory(0x39, 0x50); // BN1 0x50
+        WriteOpcodeToMemory(0x3C, 0x50); // BN1 0x50
 
         // Act
         _cpu.Step();
@@ -714,7 +714,7 @@ public class InstructionTests
     {
         // Arrange
         _cpu.EF4 = true;
-        WriteOpcodeToMemory(0x3C, 0x00); // B4 0x00
+        WriteOpcodeToMemory(0x37, 0x00); // B4 0x00
 
         // Act
         _cpu.Step();
@@ -728,7 +728,7 @@ public class InstructionTests
     {
         // Arrange
         _cpu.EF4 = false;
-        WriteOpcodeToMemory(0x3D, 0x00); // BN4 0x00
+        WriteOpcodeToMemory(0x3F, 0x00); // BN4 0x00
 
         // Act
         _cpu.Step();
@@ -742,7 +742,7 @@ public class InstructionTests
     {
         // Arrange
         _cpu.EF2 = true;
-        WriteOpcodeToMemory(0x3E, 0x00); // B2 0x00
+        WriteOpcodeToMemory(0x35, 0x00); // B2 0x00
 
         // Act
         _cpu.Step();
@@ -756,7 +756,7 @@ public class InstructionTests
     {
         // Arrange
         _cpu.EF2 = false;
-        WriteOpcodeToMemory(0x3F, 0x00); // BN2 0x00
+        WriteOpcodeToMemory(0x3D, 0x00); // BN2 0x00
 
         // Act
         _cpu.Step();
@@ -774,7 +774,7 @@ public class InstructionTests
     {
         // Arrange
         _cpu.DF = true;
-        WriteOpcodeToMemory(0xC7, 0x00, 0x20); // LBDF 0x2000
+        WriteOpcodeToMemory(0xC3, 0x00, 0x20); // LBDF 0x2000
 
         // Act
         _cpu.Step();
@@ -788,7 +788,7 @@ public class InstructionTests
     {
         // Arrange
         _cpu.DF = false;
-        WriteOpcodeToMemory(0xC7, 0x00, 0x20); // LBDF 0x2000
+        WriteOpcodeToMemory(0xC3, 0x00, 0x20); // LBDF 0x2000
 
         // Act
         _cpu.Step();
@@ -802,7 +802,7 @@ public class InstructionTests
     {
         // Arrange
         _cpu.DF = false;
-        WriteOpcodeToMemory(0xCF, 0x00, 0x20); // LBNF 0x2000
+        WriteOpcodeToMemory(0xCB, 0x00, 0x20); // LBNF 0x2000
 
         // Act
         _cpu.Step();
@@ -816,7 +816,7 @@ public class InstructionTests
     {
         // Arrange
         _cpu.DF = true;
-        WriteOpcodeToMemory(0xCF, 0x00, 0x20); // LBNF 0x2000
+        WriteOpcodeToMemory(0xCB, 0x00, 0x20); // LBNF 0x2000
 
         // Act
         _cpu.Step();
@@ -841,6 +841,207 @@ public class InstructionTests
         // Assert - PC stays at 0 (waiting)
         Assert.Equal((ushort)0x0000, _cpu.R[_cpu.P]);
         Assert.Equal(2UL, _cpu.TotalCycles);
+    }
+
+    #endregion
+
+    #region SKP Instruction
+
+    [Fact]
+    public void SKP_SkipsNextByte()
+    {
+        // Arrange
+        WriteOpcodeToMemory(0x38, 0x00); // SKP
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0002, _cpu.R[_cpu.P]); // Skipped 2 bytes
+    }
+
+    #endregion
+
+    #region EF3 Branches
+
+    [Fact]
+    public void B3_BranchIfEF3Equals1()
+    {
+        // Arrange
+        _cpu.EF3 = true;
+        WriteOpcodeToMemory(0x36, 0x00); // B3 0x00
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0000, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void BN3_BranchIfEF3Equals0()
+    {
+        // Arrange
+        _cpu.EF3 = false;
+        WriteOpcodeToMemory(0x3E, 0x00); // BN3 0x00
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0000, _cpu.R[_cpu.P]);
+    }
+
+    #endregion
+
+    #region Long Skip DF/IE variants
+
+    [Fact]
+    public void LSDF_SkipsIfDFEquals1()
+    {
+        // Arrange
+        _cpu.DF = true;
+        WriteOpcodeToMemory(0xCF); // LSDF
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0003, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void LSNF_SkipsIfDFEquals0()
+    {
+        // Arrange
+        _cpu.DF = false;
+        WriteOpcodeToMemory(0xC7); // LSNF
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0003, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void LSIE_SkipsIfIEEquals1()
+    {
+        // Arrange
+        _cpu.IE = true;
+        WriteOpcodeToMemory(0xCC); // LSIE
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0003, _cpu.R[_cpu.P]);
+    }
+
+    #endregion
+
+    #region Immediate ALU Operations
+
+    [Theory]
+    [InlineData(0x0F, 0xF0, 0xFF)] // OR
+    [InlineData(0x00, 0xFF, 0xFF)]
+    [InlineData(0xAA, 0x55, 0xFF)]
+    public void ORI_PerformsORImmediate(byte d, byte imm, byte expected)
+    {
+        // Arrange
+        _cpu.D = d;
+        WriteOpcodeToMemory(0xF9, imm); // ORI imm
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(expected, _cpu.D);
+    }
+
+    [Theory]
+    [InlineData(0x0F, 0xFF, 0x0F)] // AND
+    [InlineData(0x00, 0xFF, 0x00)]
+    [InlineData(0xAA, 0xAA, 0xAA)]
+    public void ANI_PerformsANDImmediate(byte d, byte imm, byte expected)
+    {
+        // Arrange
+        _cpu.D = d;
+        WriteOpcodeToMemory(0xFA, imm); // ANI imm
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(expected, _cpu.D);
+    }
+
+    [Theory]
+    [InlineData(0x0F, 0xFF, 0xF0)] // XOR
+    [InlineData(0x00, 0xFF, 0xFF)]
+    [InlineData(0xAA, 0xAA, 0x00)]
+    public void XRI_PerformsXORImmediate(byte d, byte imm, byte expected)
+    {
+        // Arrange
+        _cpu.D = d;
+        WriteOpcodeToMemory(0xFB, imm); // XRI imm
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(expected, _cpu.D);
+    }
+
+    [Theory]
+    [InlineData(0x01, 0x02, 0x03, false)] // No carry
+    [InlineData(0xFF, 0x01, 0x00, true)]  // Carry
+    public void ADI_PerformsAddImmediate(byte d, byte imm, byte expected, bool expectedDf)
+    {
+        // Arrange
+        _cpu.D = d;
+        WriteOpcodeToMemory(0xFC, imm); // ADI imm
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(expected, _cpu.D);
+        Assert.Equal(expectedDf, _cpu.DF);
+    }
+
+    [Theory]
+    [InlineData(0x05, 0x03, 0xFE, false)] // Borrow (3-5 = -2)
+    [InlineData(0x03, 0x05, 0x02, true)]   // No borrow (5-3 = 2)
+    public void SDI_PerformsSubtractDImmediate(byte d, byte imm, byte expected, bool expectedDf)
+    {
+        // Arrange
+        _cpu.D = d;
+        WriteOpcodeToMemory(0xFD, imm); // SDI imm
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(expected, _cpu.D);
+        Assert.Equal(expectedDf, _cpu.DF);
+    }
+
+    [Theory]
+    [InlineData(0x05, 0x03, 0x02, true)]   // No borrow (5-3 = 2)
+    [InlineData(0x03, 0x05, 0xFE, false)] // Borrow (3-5 = -2)
+    public void SMI_PerformsSubtractMemoryImmediate(byte d, byte imm, byte expected, bool expectedDf)
+    {
+        // Arrange
+        _cpu.D = d;
+        WriteOpcodeToMemory(0xFF, imm); // SMI imm
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(expected, _cpu.D);
+        Assert.Equal(expectedDf, _cpu.DF);
     }
 
     #endregion
