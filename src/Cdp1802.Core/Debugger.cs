@@ -58,6 +58,17 @@ public class Debugger
     }
 
     /// <summary>
+    /// Toggle breakpoint at address.
+    /// </summary>
+    public void ToggleBreakpoint(ushort address)
+    {
+        if (_breakpoints.Contains(address))
+            _breakpoints.Remove(address);
+        else
+            _breakpoints.Add(address);
+    }
+
+    /// <summary>
     /// Add a watchpoint at address.
     /// </summary>
     public void AddWatchpoint(ushort address)
