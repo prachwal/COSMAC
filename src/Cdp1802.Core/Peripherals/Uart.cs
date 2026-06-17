@@ -15,6 +15,7 @@ public class Uart : IPeripheral
     private byte _rxData;
     private byte _status;
     private bool _rxAvailable;
+    private readonly System.Text.StringBuilder _txBuffer = new();
 
     public string Name => "UART";
     public ushort BaseAddress => 0x0100;
@@ -22,6 +23,7 @@ public class Uart : IPeripheral
 
     public bool HasTransmitted { get; private set; }
     public byte LastTransmittedByte { get; private set; }
+    public string TransmittedString => _txBuffer.ToString();
 
     public byte Read(ushort offset)
     {
@@ -47,6 +49,7 @@ public class Uart : IPeripheral
             _txData = value;
             LastTransmittedByte = value;
             HasTransmitted = true;
+            _txBuffer.Append((char)value);
         }
     }
 
