@@ -489,6 +489,168 @@ public class InstructionTests
 
     #endregion
 
+    #region Shift Instructions (SHR/SHL)
+
+    [Theory]
+    [InlineData(0x00, 0x00, false)] // 0 >> 1 = 0
+    [InlineData(0x01, 0x00, true)]  // 1 >> 1 = 0, carry=1
+    [InlineData(0xFF, 0x7F, true)]  // 255 >> 1 = 127, carry=1
+    [InlineData(0x80, 0x40, false)] // 128 >> 1 = 64, carry=0
+    public void SHR_ShiftsRight(byte d, byte expected, bool expectedDf)
+    {
+        // Arrange
+        _cpu.D = d;
+        WriteOpcodeToMemory(0xF6); // SHR
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(expected, _cpu.D);
+        Assert.Equal(expectedDf, _cpu.DF);
+    }
+
+    [Theory]
+    [InlineData(0x00, 0x00, false)] // 0 << 1 = 0
+    [InlineData(0x01, 0x02, false)] // 1 << 1 = 2
+    [InlineData(0x80, 0x00, true)]  // 128 << 1 = 0, carry=1
+    [InlineData(0x7F, 0xFE, false)] // 127 << 1 = 254
+    public void SHL_ShiftsLeft(byte d, byte expected, bool expectedDf)
+    {
+        // Arrange
+        _cpu.D = d;
+        WriteOpcodeToMemory(0xFE); // SHL
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal(expected, _cpu.D);
+        Assert.Equal(expectedDf, _cpu.DF);
+    }
+
+    #endregion
+
+    #region Long Branch if Q
+
+    [Fact]
+    public void LBQ_BranchIfQEquals1()
+    {
+        // Arrange
+        _cpu.Q = true;
+        WriteOpcodeToMemory(0xC1, 0x00, 0x20); // LBQ 0x2000
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x2000, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void LBQ_NoBranchIfQEquals0()
+    {
+        // Arrange
+        _cpu.Q = false;
+        WriteOpcodeToMemory(0xC1, 0x00, 0x20); // LBQ 0x2000
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0003, _cpu.R[_cpu.P]); // PC advanced by 3 (no branch)
+    }
+
+    [Fact]
+    public void LBNQ_BranchIfQEquals0()
+    {
+        // Arrange
+        _cpu.Q = false;
+        WriteOpcodeToMemory(0xC9, 0x00, 0x20); // LBNQ 0x2000
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x2000, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void LBNQ_NoBranchIfQEquals1()
+    {
+        // Arrange
+        _cpu.Q = true;
+        WriteOpcodeToMemory(0xC9, 0x00, 0x20); // LBNQ 0x2000
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0003, _cpu.R[_cpu.P]); // PC advanced by 3 (no branch)
+    }
+
+    #endregion
+
+    #region Long Skip variants
+
+    [Fact]
+    public void LSNQ_SkipsIfQEquals0()
+    {
+        // Arrange
+        _cpu.Q = false;
+        WriteOpcodeToMemory(0xC5); // LSNQ
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0003, _cpu.R[_cpu.P]); // Skipped 3 bytes
+    }
+
+    [Fact]
+    public void LSQ_SkipsIfQEquals1()
+    {
+        // Arrange
+        _cpu.Q = true;
+        WriteOpcodeToMemory(0xCD); // LSQ
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0003, _cpu.R[_cpu.P]); // Skipped 3 bytes
+    }
+
+    [Fact]
+    public void LSNZ_SkipsIfDNotZero()
+    {
+        // Arrange
+        _cpu.D = 0x01;
+        WriteOpcodeToMemory(0xC6); // LSNZ
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0003, _cpu.R[_cpu.P]); // Skipped
+    }
+
+    [Fact]
+    public void LSZ_SkipsIfDZero()
+    {
+        // Arrange
+        _cpu.D = 0x00;
+        WriteOpcodeToMemory(0xCE); // LSZ
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0003, _cpu.R[_cpu.P]); // Skipped
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private void WriteOpcodeToMemory(params byte[] opcodes)

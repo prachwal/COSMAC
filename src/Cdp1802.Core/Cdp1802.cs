@@ -289,6 +289,36 @@ public class Cdp1802
                 LSKP();
                 break;
 
+            // 0xC1: LBQ - Long branch if Q == 1
+            case 0xC1:
+                LBQ();
+                break;
+
+            // 0xC9: LBNQ - Long branch if Q == 0
+            case 0xC9:
+                LBNQ();
+                break;
+
+            // 0xC5: LSNQ - Long skip if Q == 0
+            case 0xC5:
+                LSNQ();
+                break;
+
+            // 0xCD: LSQ - Long skip if Q == 1
+            case 0xCD:
+                LSQ();
+                break;
+
+            // 0xC6: LSNZ - Long skip if D != 0
+            case 0xC6:
+                LSNZ();
+                break;
+
+            // 0xCE: LSZ - Long skip if D == 0
+            case 0xCE:
+                LSZ();
+                break;
+
             // 0xDN: SEP - Set P
             case byte op when (opcode & 0xF0) == 0xD0:
                 SEP(n);
@@ -329,6 +359,11 @@ public class Cdp1802
                 SUB();
                 break;
 
+            // 0xF6: SHR - Shift right
+            case 0xF6:
+                SHR();
+                break;
+
             // 0xF7: SM - Subtract memory
             case 0xF7:
                 SM();
@@ -337,6 +372,11 @@ public class Cdp1802
             // 0xF8: LDI - Load immediate
             case 0xF8:
                 LDI();
+                break;
+
+            // 0xFE: SHL - Shift left
+            case 0xFE:
+                SHL();
                 break;
 
             default:
@@ -560,6 +600,20 @@ public class Cdp1802
         TotalCycles += 2;
     }
 
+    private void SHR()
+    {
+        DF = (D & 0x01) != 0;
+        D = (byte)(D >> 1);
+        TotalCycles += 2;
+    }
+
+    private void SHL()
+    {
+        DF = (D & 0x80) != 0;
+        D = (byte)(D << 1);
+        TotalCycles += 2;
+    }
+
     #endregion
 
     #region Branch Instructions (Short)
@@ -730,6 +784,76 @@ public class Cdp1802
     private void LSKP()
     {
         R[P] += 3;
+        TotalCycles += 3;
+    }
+
+    private void LBQ()
+    {
+        R[P]++;
+        byte lo = Memory[R[P]];
+        R[P]++;
+        byte hi = Memory[R[P]];
+        if (Q)
+        {
+            R[P] = (ushort)((hi << 8) | lo);
+        }
+        else
+        {
+            R[P]++;
+        }
+        TotalCycles += 3;
+    }
+
+    private void LBNQ()
+    {
+        R[P]++;
+        byte lo = Memory[R[P]];
+        R[P]++;
+        byte hi = Memory[R[P]];
+        if (!Q)
+        {
+            R[P] = (ushort)((hi << 8) | lo);
+        }
+        else
+        {
+            R[P]++;
+        }
+        TotalCycles += 3;
+    }
+
+    private void LSNQ()
+    {
+        if (!Q)
+        {
+            R[P] += 3;
+        }
+        TotalCycles += 3;
+    }
+
+    private void LSQ()
+    {
+        if (Q)
+        {
+            R[P] += 3;
+        }
+        TotalCycles += 3;
+    }
+
+    private void LSNZ()
+    {
+        if (D != 0)
+        {
+            R[P] += 3;
+        }
+        TotalCycles += 3;
+    }
+
+    private void LSZ()
+    {
+        if (D == 0)
+        {
+            R[P] += 3;
+        }
         TotalCycles += 3;
     }
 
