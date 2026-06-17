@@ -453,8 +453,8 @@ public class InstructionTests
         _cpu.Step();
 
         // Assert
-        Assert.Equal((ushort)0x0003, _cpu.R[_cpu.P]); // PC advanced by 3
-        Assert.Equal(3UL, _cpu.TotalCycles);
+        Assert.Equal((ushort)0x0001, _cpu.R[_cpu.P]); // PC advanced by 1
+        Assert.Equal(2UL, _cpu.TotalCycles);
     }
 
     #endregion

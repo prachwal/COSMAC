@@ -1199,8 +1199,8 @@ public class Cdp1802
 
     private void NOP()
     {
-        R[P] += 3;
-        TotalCycles += 3;
+        R[P] += 1;
+        TotalCycles += 2;
     }
 
     private void LSKP()

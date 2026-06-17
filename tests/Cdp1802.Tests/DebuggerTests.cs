@@ -14,8 +14,8 @@ public class DebuggerTests
         var cpu = new Core.Cdp1802();
         var dbg = new Debugger(cpu);
 
-        cpu.Memory[0x0000] = 0xC4; // NOP
-        cpu.Memory[0x0003] = 0xC4; // NOP
+        for (int i = 0; i <= 0x0003; i++)
+            cpu.Memory[i] = 0xC4; // NOP
         dbg.AddBreakpoint(0x0003);
 
         int steps = dbg.Run(100);

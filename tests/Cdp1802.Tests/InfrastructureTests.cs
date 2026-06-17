@@ -55,7 +55,7 @@ public class InfrastructureTests
         var cpu = new Core.Cdp1802();
         cpu.Memory[0] = 0xC4; // NOP
         cpu.Step();
-        Assert.Equal(3UL, cpu.TotalCycles);
+        Assert.Equal(2UL, cpu.TotalCycles);
     }
 
     [Fact]
