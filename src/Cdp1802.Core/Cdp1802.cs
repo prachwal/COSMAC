@@ -24,6 +24,9 @@ public class Cdp1802
     // Pamięć
     public byte[] Memory { get; } = new byte[65536];
 
+    // Peryferia (memory-mapped I/O)
+    private readonly List<IPeripheral> _peripherals = new();
+
     // Licznik cykli
     public ulong TotalCycles { get; private set; }
 
@@ -55,6 +58,48 @@ public class Cdp1802
         InterruptRequest = false;
         DmaDataIn = 0;
         DmaDataOut = 0;
+
+        foreach (var peripheral in _peripherals)
+            peripheral.Reset();
+    }
+
+    public void RegisterPeripheral(IPeripheral peripheral)
+    {
+        _peripherals.Add(peripheral);
+    }
+
+    public void UnregisterPeripheral(IPeripheral peripheral)
+    {
+        _peripherals.Remove(peripheral);
+    }
+
+    private IPeripheral? FindPeripheral(ushort address)
+    {
+        foreach (var p in _peripherals)
+        {
+            if (address >= p.BaseAddress && address < p.BaseAddress + p.Size)
+                return p;
+        }
+        return null;
+    }
+
+    public byte ReadMemory(ushort address)
+    {
+        var peripheral = FindPeripheral(address);
+        if (peripheral != null)
+            return peripheral.Read((ushort)(address - peripheral.BaseAddress));
+        return Memory[address];
+    }
+
+    public void WriteMemory(ushort address, byte value)
+    {
+        var peripheral = FindPeripheral(address);
+        if (peripheral != null)
+        {
+            peripheral.Write((ushort)(address - peripheral.BaseAddress), value);
+            return;
+        }
+        Memory[address] = value;
     }
 
     /// <summary>

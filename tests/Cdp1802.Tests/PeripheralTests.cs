@@ -1,6 +1,7 @@
 using Cdp1802.Core;
 using Xunit;
 using Timer = Cdp1802.Core.Timer;
+using Cdp1802Cpu = Cdp1802.Core.Cdp1802;
 
 namespace Cdp1802.Tests;
 
@@ -247,6 +248,119 @@ public class PeripheralTests
         // Assert
         Assert.Equal(0, gpio.OutputValue);
         Assert.Equal(0, gpio.DirectionMask);
+    }
+
+    #endregion
+
+    #region Processor + Peripheral Integration
+
+    [Fact]
+    public void Processor_CanRegisterPeripheral()
+    {
+        // Arrange
+        var cpu = new Cdp1802Cpu();
+        var uart = new Uart();
+
+        // Act
+        cpu.RegisterPeripheral(uart);
+
+        // Assert - Write to UART TX (0x0100)
+        cpu.WriteMemory(0x0100, 0x41);
+        Assert.Equal(0x41, uart.LastTransmittedByte);
+    }
+
+    [Fact]
+    public void Processor_PeripheralWriteDoesNotAffectRAM()
+    {
+        // Arrange
+        var cpu = new Cdp1802Cpu();
+        var gpio = new Gpio();
+        cpu.RegisterPeripheral(gpio);
+
+        // Act
+        cpu.WriteMemory(0x0301, 0xAA); // GPIO output port (offset 1)
+
+        // Assert
+        Assert.Equal(0xAA, gpio.OutputValue);
+        Assert.Equal(0, cpu.Memory[0x0300]); // RAM unchanged
+    }
+
+    [Fact]
+    public void Processor_PeripheralReadInterceptsRAM()
+    {
+        // Arrange
+        var cpu = new Cdp1802Cpu();
+        var gpio = new Gpio();
+        cpu.RegisterPeripheral(gpio);
+        gpio.SetInput(0x55);
+
+        // Act
+        byte result = cpu.ReadMemory(0x0300); // GPIO input port
+
+        // Assert
+        Assert.Equal(0x55, result);
+    }
+
+    [Fact]
+    public void Processor_RAMAccessUnaffectedByPeripherals()
+    {
+        // Arrange
+        var cpu = new Cdp1802Cpu();
+        var uart = new Uart();
+        cpu.RegisterPeripheral(uart);
+        cpu.Memory[0x0500] = 0x42;
+
+        // Act
+        byte result = cpu.ReadMemory(0x0500);
+
+        // Assert
+        Assert.Equal(0x42, result);
+    }
+
+    [Fact]
+    public void Processor_MultiplePeripherals()
+    {
+        // Arrange
+        var cpu = new Cdp1802Cpu();
+        var uart = new Uart();
+        var timer = new Timer();
+        var gpio = new Gpio();
+        cpu.RegisterPeripheral(uart);
+        cpu.RegisterPeripheral(timer);
+        cpu.RegisterPeripheral(gpio);
+
+        // Act & Assert - UART
+        cpu.WriteMemory(0x0100, 0x41);
+        Assert.Equal(0x41, uart.LastTransmittedByte);
+
+        // Timer
+        timer.CompareValue = 5;
+        for (int i = 0; i < 5; i++) timer.Tick();
+        byte timerStatus = cpu.ReadMemory(0x0202);
+        Assert.Equal(0x01, timerStatus & 0x01); // Interrupt pending
+
+        // GPIO
+        gpio.SetInput(0xFF);
+        byte gpioInput = cpu.ReadMemory(0x0300);
+        Assert.Equal(0xFF, gpioInput);
+    }
+
+    [Fact]
+    public void Processor_TimerInterruptConnectsToCPU()
+    {
+        // Arrange
+        var cpu = new Cdp1802Cpu();
+        var timer = new Timer();
+        cpu.RegisterPeripheral(timer);
+        timer.CompareValue = 3;
+
+        // Act
+        for (int i = 0; i < 3; i++) timer.Tick();
+
+        // Assert - Timer interrupt pending
+        Assert.True(timer.InterruptPending);
+        byte status = cpu.ReadMemory(0x0202);
+        Assert.Equal(0x01, status & 0x01);
     }
 
     #endregion
