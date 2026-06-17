@@ -13,7 +13,6 @@ public class Uart : IPeripheral
 {
     private byte _txData;
     private byte _rxData;
-    private byte _status;
     private bool _rxAvailable;
     private readonly System.Text.StringBuilder _txBuffer = new();
 
@@ -63,7 +62,6 @@ public class Uart : IPeripheral
     {
         _txData = 0;
         _rxData = 0;
-        _status = 0;
         _rxAvailable = false;
         HasTransmitted = false;
         LastTransmittedByte = 0;
