@@ -651,6 +651,200 @@ public class InstructionTests
 
     #endregion
 
+    #region EF Flag Short Branches
+
+    [Fact]
+    public void B1_BranchIfEF1Equals1()
+    {
+        // Arrange
+        _cpu.EF1 = true;
+        WriteOpcodeToMemory(0x38, 0x00); // B1 0x00
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0000, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void B1_NoBranchIfEF1Equals0()
+    {
+        // Arrange
+        _cpu.EF1 = false;
+        WriteOpcodeToMemory(0x38, 0x50); // B1 0x50
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0002, _cpu.R[_cpu.P]); // Skipped 2 bytes
+    }
+
+    [Fact]
+    public void BN1_BranchIfEF1Equals0()
+    {
+        // Arrange
+        _cpu.EF1 = false;
+        WriteOpcodeToMemory(0x39, 0x00); // BN1 0x00
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0000, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void BN1_NoBranchIfEF1Equals1()
+    {
+        // Arrange
+        _cpu.EF1 = true;
+        WriteOpcodeToMemory(0x39, 0x50); // BN1 0x50
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0002, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void B4_BranchIfEF4Equals1()
+    {
+        // Arrange
+        _cpu.EF4 = true;
+        WriteOpcodeToMemory(0x3C, 0x00); // B4 0x00
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0000, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void BN4_BranchIfEF4Equals0()
+    {
+        // Arrange
+        _cpu.EF4 = false;
+        WriteOpcodeToMemory(0x3D, 0x00); // BN4 0x00
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0000, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void B2_BranchIfEF2Equals1()
+    {
+        // Arrange
+        _cpu.EF2 = true;
+        WriteOpcodeToMemory(0x3E, 0x00); // B2 0x00
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0000, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void BN2_BranchIfEF2Equals0()
+    {
+        // Arrange
+        _cpu.EF2 = false;
+        WriteOpcodeToMemory(0x3F, 0x00); // BN2 0x00
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0000, _cpu.R[_cpu.P]);
+    }
+
+    #endregion
+
+    #region Long Branch DF variants
+
+    [Fact]
+    public void LBDF_BranchIfDFEquals1()
+    {
+        // Arrange
+        _cpu.DF = true;
+        WriteOpcodeToMemory(0xC7, 0x00, 0x20); // LBDF 0x2000
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x2000, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void LBDF_NoBranchIfDFEquals0()
+    {
+        // Arrange
+        _cpu.DF = false;
+        WriteOpcodeToMemory(0xC7, 0x00, 0x20); // LBDF 0x2000
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0003, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void LBNF_BranchIfDFEquals0()
+    {
+        // Arrange
+        _cpu.DF = false;
+        WriteOpcodeToMemory(0xCF, 0x00, 0x20); // LBNF 0x2000
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x2000, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
+    public void LBNF_NoBranchIfDFEquals1()
+    {
+        // Arrange
+        _cpu.DF = true;
+        WriteOpcodeToMemory(0xCF, 0x00, 0x20); // LBNF 0x2000
+
+        // Act
+        _cpu.Step();
+
+        // Assert
+        Assert.Equal((ushort)0x0003, _cpu.R[_cpu.P]);
+    }
+
+    #endregion
+
+    #region IDL Instruction
+
+    [Fact]
+    public void IDL_WaitsForDMA()
+    {
+        // Arrange
+        WriteOpcodeToMemory(0x00); // IDL
+
+        // Act
+        _cpu.Step();
+
+        // Assert - PC stays at 0 (waiting)
+        Assert.Equal((ushort)0x0000, _cpu.R[_cpu.P]);
+        Assert.Equal(2UL, _cpu.TotalCycles);
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private void WriteOpcodeToMemory(params byte[] opcodes)

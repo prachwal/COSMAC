@@ -15,6 +15,12 @@ public class Cdp1802
     public bool Q { get; set; }
     public bool IE { get; set; } = true;
 
+    // External Flag inputs (EF1-EF4)
+    public bool EF1 { get; set; }
+    public bool EF2 { get; set; }
+    public bool EF3 { get; set; }
+    public bool EF4 { get; set; }
+
     // Pamięć
     public byte[] Memory { get; } = new byte[65536];
 
@@ -76,7 +82,7 @@ public class Cdp1802
         {
             // 0x00: IDL - Idle
             case 0x00:
-                TotalCycles += 2;
+                IDL();
                 break;
 
             // 0x0N: LDN - Load indirect (N != 0)
@@ -127,6 +133,36 @@ public class Cdp1802
             // 0x35: BNQ - Branch if Q == 0
             case 0x35:
                 BNQ();
+                break;
+
+            // 0x38: B1 - Branch if EF1 == 1
+            case 0x38:
+                B1();
+                break;
+
+            // 0x39: BN1 - Branch if EF1 == 0
+            case 0x39:
+                BN1();
+                break;
+
+            // 0x3C: B4 - Branch if EF4 == 1
+            case 0x3C:
+                B4();
+                break;
+
+            // 0x3D: BN4 - Branch if EF4 == 0
+            case 0x3D:
+                BN4();
+                break;
+
+            // 0x3E: B2 - Branch if EF2 == 1
+            case 0x3E:
+                B2();
+                break;
+
+            // 0x3F: BN2 - Branch if EF2 == 0
+            case 0x3F:
+                BN2();
                 break;
 
             // 0x4N: LDA - Load and advance
@@ -314,9 +350,19 @@ public class Cdp1802
                 LSNZ();
                 break;
 
+            // 0xC7: LBDF - Long branch if DF == 1
+            case 0xC7:
+                LBDF();
+                break;
+
             // 0xCE: LSZ - Long skip if D == 0
             case 0xCE:
                 LSZ();
+                break;
+
+            // 0xCF: LBNF - Long branch if DF == 0
+            case 0xCF:
+                LBNF();
                 break;
 
             // 0xDN: SEP - Set P
@@ -709,6 +755,90 @@ public class Cdp1802
         TotalCycles += 2;
     }
 
+    private void B1()
+    {
+        R[P]++;
+        if (EF1)
+        {
+            R[P] = (ushort)((R[P] & 0xFF00) | Memory[R[P]]);
+        }
+        else
+        {
+            R[P]++;
+        }
+        TotalCycles += 2;
+    }
+
+    private void BN1()
+    {
+        R[P]++;
+        if (!EF1)
+        {
+            R[P] = (ushort)((R[P] & 0xFF00) | Memory[R[P]]);
+        }
+        else
+        {
+            R[P]++;
+        }
+        TotalCycles += 2;
+    }
+
+    private void B4()
+    {
+        R[P]++;
+        if (EF4)
+        {
+            R[P] = (ushort)((R[P] & 0xFF00) | Memory[R[P]]);
+        }
+        else
+        {
+            R[P]++;
+        }
+        TotalCycles += 2;
+    }
+
+    private void BN4()
+    {
+        R[P]++;
+        if (!EF4)
+        {
+            R[P] = (ushort)((R[P] & 0xFF00) | Memory[R[P]]);
+        }
+        else
+        {
+            R[P]++;
+        }
+        TotalCycles += 2;
+    }
+
+    private void B2()
+    {
+        R[P]++;
+        if (EF2)
+        {
+            R[P] = (ushort)((R[P] & 0xFF00) | Memory[R[P]]);
+        }
+        else
+        {
+            R[P]++;
+        }
+        TotalCycles += 2;
+    }
+
+    private void BN2()
+    {
+        R[P]++;
+        if (!EF2)
+        {
+            R[P] = (ushort)((R[P] & 0xFF00) | Memory[R[P]]);
+        }
+        else
+        {
+            R[P]++;
+        }
+        TotalCycles += 2;
+    }
+
     #endregion
 
     #region Branch Instructions (Long)
@@ -759,6 +889,10 @@ public class Cdp1802
         {
             R[P] = (ushort)((hi << 8) | lo);
         }
+        else
+        {
+            R[P]++;
+        }
         TotalCycles += 3;
     }
 
@@ -771,6 +905,10 @@ public class Cdp1802
         if (!DF)
         {
             R[P] = (ushort)((hi << 8) | lo);
+        }
+        else
+        {
+            R[P]++;
         }
         TotalCycles += 3;
     }
@@ -860,6 +998,12 @@ public class Cdp1802
     #endregion
 
     #region Control Instructions
+
+    private void IDL()
+    {
+        // Idle - wait for DMA/Interrupt, PC stays at current position
+        TotalCycles += 2;
+    }
 
     private void SEP(byte n)
     {
