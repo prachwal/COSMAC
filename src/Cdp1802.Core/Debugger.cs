@@ -2,19 +2,23 @@ namespace Cdp1802.Core;
 
 /// <summary>
 /// Debugger for CDP1802 emulator.
-/// Supports breakpoints, trace, and register dump.
+/// Supports breakpoints, watchpoints, trace, and register dump.
 /// </summary>
 public class Debugger
 {
     private readonly Cdp1802 _cpu;
     private readonly HashSet<ushort> _breakpoints = new();
+    private readonly Dictionary<ushort, (byte oldVal, byte newVal)> _watchpoints = new();
     private readonly List<string> _traceLog = new();
     private bool _traceEnabled;
 
     public bool IsBreakpointHit { get; private set; }
+    public bool IsWatchpointHit { get; private set; }
+    public ushort WatchpointAddress { get; private set; }
     public int StepCount { get; private set; }
     public bool TraceEnabled => _traceEnabled;
     public IReadOnlyCollection<ushort> Breakpoints => _breakpoints;
+    public IReadOnlyDictionary<ushort, (byte oldVal, byte newVal)> Watchpoints => _watchpoints;
 
     public Debugger(Cdp1802 cpu)
     {
@@ -54,6 +58,56 @@ public class Debugger
     }
 
     /// <summary>
+    /// Add a watchpoint at address.
+    /// </summary>
+    public void AddWatchpoint(ushort address)
+    {
+        _watchpoints[address] = (_cpu.Memory[address], _cpu.Memory[address]);
+    }
+
+    /// <summary>
+    /// Remove a watchpoint.
+    /// </summary>
+    public void RemoveWatchpoint(ushort address)
+    {
+        _watchpoints.Remove(address);
+    }
+
+    /// <summary>
+    /// Clear all watchpoints.
+    /// </summary>
+    public void ClearWatchpoints()
+    {
+        _watchpoints.Clear();
+    }
+
+    /// <summary>
+    /// Check if address has a watchpoint.
+    /// </summary>
+    public bool HasWatchpoint(ushort address)
+    {
+        return _watchpoints.ContainsKey(address);
+    }
+
+    /// <summary>
+    /// Check watchpoints for changes.
+    /// </summary>
+    private void CheckWatchpoints()
+    {
+        IsWatchpointHit = false;
+        foreach (var kv in _watchpoints.ToList())
+        {
+            byte current = _cpu.Memory[kv.Key];
+            if (current != kv.Value.oldVal)
+            {
+                _watchpoints[kv.Key] = (kv.Value.oldVal, current);
+                IsWatchpointHit = true;
+                WatchpointAddress = kv.Key;
+            }
+        }
+    }
+
+    /// <summary>
     /// Enable/disable trace logging.
     /// </summary>
     public void SetTrace(bool enabled)
@@ -76,12 +130,13 @@ public class Debugger
 
     /// <summary>
     /// Execute one step with debugging support.
-    /// Returns true if a breakpoint was hit.
+    /// Returns true if a breakpoint or watchpoint was hit.
     /// </summary>
     public bool Step()
     {
         ushort pc = _cpu.R[_cpu.P];
         IsBreakpointHit = false;
+        IsWatchpointHit = false;
 
         if (_traceEnabled)
         {
@@ -97,7 +152,9 @@ public class Debugger
 
         _cpu.Step();
         StepCount++;
-        return false;
+        CheckWatchpoints();
+
+        return IsWatchpointHit;
     }
 
     /// <summary>
@@ -251,6 +308,76 @@ public class Debugger
                 sb.Append($"{_cpu.Memory[start + i + j]:X2} ");
             sb.AppendLine();
         }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Dump memory in hex format with ASCII.
+    /// </summary>
+    public string DumpMemoryHex(ushort start, int length)
+    {
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < length; i += 16)
+        {
+            sb.Append($"0x{start + i:X4}: ");
+            int rowLen = Math.Min(16, length - i);
+
+            // Hex part
+            for (int j = 0; j < rowLen; j++)
+                sb.Append($"{_cpu.Memory[start + i + j]:X2} ");
+            for (int j = rowLen; j < 16; j++)
+                sb.Append("   ");
+
+            sb.Append(" |");
+
+            // ASCII part
+            for (int j = 0; j < rowLen; j++)
+            {
+                byte b = _cpu.Memory[start + i + j];
+                sb.Append(b >= 0x20 && b < 0x7F ? (char)b : '.');
+            }
+            sb.Append('|');
+            sb.AppendLine();
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Set register value.
+    /// </summary>
+    public void SetRegister(string name, int value)
+    {
+        switch (name.ToUpper())
+        {
+            case "D": _cpu.D = (byte)value; break;
+            case "DF": _cpu.DF = value != 0; break;
+            case "P": _cpu.P = (byte)value; break;
+            case "X": _cpu.X = (byte)value; break;
+            case "T": _cpu.T = (byte)value; break;
+            case "Q": _cpu.Q = value != 0; break;
+            case "IE": _cpu.IE = value != 0; break;
+            default:
+                if (name.StartsWith("R") && int.TryParse(name[1..], out int reg) && reg >= 0 && reg <= 15)
+                    _cpu.R[reg] = (ushort)value;
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Disassemble next N instructions.
+    /// </summary>
+    public string DisassembleNext(int count)
+    {
+        var sb = new System.Text.StringBuilder();
+        ushort pc = _cpu.R[_cpu.P];
+
+        for (int i = 0; i < count; i++)
+        {
+            var (mnemonic, length) = InstructionTiming.Disassemble(_cpu.Memory, pc);
+            sb.AppendLine($"{pc:X4}: {mnemonic}");
+            pc += (ushort)length;
+        }
+
         return sb.ToString();
     }
 }
