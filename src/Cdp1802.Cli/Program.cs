@@ -46,9 +46,20 @@ public class Program
         sys.Cpu.Memory[0x0003] = 0xC4; // NOP
 
         // Start interactive debugger if no args, otherwise run demo
-        if (args.Length > 0 && args[0] == "--demo")
+        if (args.Length > 0)
         {
-            RunDemo(sys);
+            switch (args[0])
+            {
+                case "--demo":
+                    RunDemo(sys);
+                    break;
+                case "--benchmark":
+                    Benchmark.RunAll();
+                    break;
+                default:
+                    Console.WriteLine("Usage: Cdp1802.Cli [--demo|--benchmark]");
+                    break;
+            }
         }
         else
         {
