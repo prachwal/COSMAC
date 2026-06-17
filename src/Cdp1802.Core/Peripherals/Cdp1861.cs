@@ -7,6 +7,7 @@ namespace Cdp1802.Core;
 /// Modes:
 ///   - 64x32 pixels (low resolution)
 ///   - 128x64 pixels (high resolution, via DMA trick)
+///   - 64x32 with 4-color palette (extended mode)
 /// 
 /// Registers:
 ///   0x00 - DMA address (R0)
@@ -17,6 +18,7 @@ public class Cdp1861 : IPeripheral
 {
     private readonly Cdp1802 _cpu;
     private readonly byte[] _framebuffer = new byte[1024]; // 128x64 / 8 = 1024 bytes
+    private readonly byte[] _colorBuffer = new byte[128 * 64]; // Color plane
 
     public ushort BaseAddress => 0x0400;
     public int Size => 3;
@@ -36,6 +38,27 @@ public class Cdp1861 : IPeripheral
     /// Framebuffer (1 bit per pixel, 1024 bytes for 128x64).
     /// </summary>
     public byte[] Framebuffer => _framebuffer;
+
+    /// <summary>
+    /// Color buffer (2 bits per pixel, 4 colors).
+    /// </summary>
+    public byte[] ColorBuffer => _colorBuffer;
+
+    /// <summary>
+    /// Color palette (4 RGB colors).
+    /// </summary>
+    public (byte R, byte G, byte B)[] Palette { get; } = new (byte, byte, byte)[4]
+    {
+        (0, 0, 0),       // Black
+        (255, 255, 255), // White
+        (0, 255, 0),     // Green
+        (0, 0, 255)      // Blue
+    };
+
+    /// <summary>
+    /// Color mode enabled.
+    /// </summary>
+    public bool ColorMode { get; set; }
 
     /// <summary>
     /// Fired when a new frame is ready.
@@ -174,6 +197,60 @@ public class Cdp1861 : IPeripheral
     public void Clear()
     {
         Array.Clear(_framebuffer);
+        Array.Clear(_colorBuffer);
+    }
+
+    /// <summary>
+    /// Set pixel with color (2 bits: 0-3).
+    /// </summary>
+    public void SetPixelColor(int x, int y, byte color)
+    {
+        if (x < 0 || x >= Width || y < 0 || y >= Height) return;
+
+        int index = y * Width + x;
+        _colorBuffer[index] = (byte)(color & 0x03);
+
+        // Also set the monochrome bit
+        int byteIndex = index / 8;
+        int bitIndex = index % 8;
+        if (color != 0)
+            _framebuffer[byteIndex] |= (byte)(1 << bitIndex);
+        else
+            _framebuffer[byteIndex] &= (byte)~(1 << bitIndex);
+    }
+
+    /// <summary>
+    /// Get pixel color.
+    /// </summary>
+    public byte GetPixelColor(int x, int y)
+    {
+        if (x < 0 || x >= Width || y < 0 || y >= Height) return 0;
+        return _colorBuffer[y * Width + x];
+    }
+
+    /// <summary>
+    /// Get RGB color for pixel.
+    /// </summary>
+    public (byte R, byte G, byte B) GetPixelRgb(int x, int y)
+    {
+        byte color = GetPixelColor(x, y);
+        return Palette[color];
+    }
+
+    /// <summary>
+    /// Draw a character (8x8 bitmap) at pixel position.
+    /// </summary>
+    public void DrawCharacter(int px, int py, byte[] bitmap, byte color = 1)
+    {
+        for (int y = 0; y < 8; y++)
+        {
+            byte row = bitmap[y];
+            for (int x = 0; x < 8; x++)
+            {
+                if ((row & (0x80 >> x)) != 0)
+                    SetPixelColor(px + x, py + y, color);
+            }
+        }
     }
 
     public void Reset()
