@@ -30,6 +30,19 @@ public class Cdp1802
     // Licznik cykli
     public ulong TotalCycles { get; private set; }
 
+    // Control pins (active low on real hardware, simulated as active high)
+    public bool ClearPin { get; set; } = true;   // Active: reset processor
+    public bool WaitPin { get; set; }            // Active: processor halted
+    public bool PausePin { get; set; }           // Active: pause after current instruction
+    public bool ReadyPin { get; set; } = true;   // Active: memory ready
+
+    // Timing pins (output)
+    public bool TpaPin { get; private set; }     // Timing Pulse A (high during S0)
+    public bool TpbPin { get; private set; }     // Timing Pulse B (high during S2)
+
+    // Processor state
+    public bool IsHalted { get; private set; }
+
     // Linie wejściowe (symulowane z zewnątrz)
     public bool DmaInRequest { get; set; }
     public bool DmaOutRequest { get; set; }
@@ -52,6 +65,9 @@ public class Cdp1802
         Q = false;
         IE = true;
         TotalCycles = 0;
+        IsHalted = false;
+        TpaPin = false;
+        TpbPin = false;
         Array.Clear(Memory);
         DmaInRequest = false;
         DmaOutRequest = false;
@@ -107,14 +123,55 @@ public class Cdp1802
     /// </summary>
     public void Step()
     {
+        // Handle CLEAR pin (active low on real hardware)
+        if (!ClearPin)
+        {
+            Reset();
+            ClearPin = true; // Auto-release after reset
+            return;
+        }
+
+        // Handle WAIT pin - processor halted
+        if (WaitPin)
+        {
+            IsHalted = true;
+            TotalCycles += 1; // Clock still runs
+            return;
+        }
+
+        // Handle PAUSE pin - if already halted, stay halted
+        if (IsHalted && PausePin)
+        {
+            TotalCycles += 1;
+            return;
+        }
+
+        IsHalted = false;
+
+        // Timing pins
+        TpaPin = true;  // S0 - address strobe
+        TpbPin = false;
+
         // Fetch opcode
         byte opcode = Memory[R[P]];
         
         // Execute
+        TpaPin = false;
+        TpbPin = true; // S1 - execute
+
         ExecuteInstruction(opcode);
+
+        TpbPin = false;
         
         // Check DMA and Interrupts after instruction
         CheckDmaAndInterrupts();
+
+        // PAUSE takes effect after instruction completes
+        if (PausePin)
+        {
+            IsHalted = true;
+            PausePin = false;
+        }
     }
 
     private void ExecuteInstruction(byte opcode)

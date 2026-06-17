@@ -1,105 +1,52 @@
 ﻿using Cdp1802.Core;
+using Timer = Cdp1802.Core.Timer;
 
 namespace Cdp1802.Cli;
 
-/// <summary>
-/// Proste CLI do testowania infrastruktury emulatora.
-/// </summary>
 public class Program
 {
     public static void Main(string[] args)
     {
-        Console.WriteLine("=== RCA CDP1802 Emulator - Test Infrastruktury ===");
+        Console.WriteLine("=== RCA CDP1802 Emulator ===");
         Console.WriteLine();
 
-        // Test 1: Inicjalizacja procesora
-        Console.Write("Test 1: Inicjalizacja procesora... ");
         var cpu = new Core.Cdp1802();
-        Console.WriteLine("OK");
+        var uart = new Uart();
+        var gpio = new Gpio();
+        var timer = new Timer();
 
-        // Test 2: Reset procesora
-        Console.Write("Test 2: Reset procesora... ");
-        cpu.Reset();
-        Console.WriteLine("OK");
+        cpu.RegisterPeripheral(uart);
+        cpu.RegisterPeripheral(gpio);
+        cpu.RegisterPeripheral(timer);
 
-        // Test 3: Sprawdzenie rejestrów
-        Console.Write("Test 3: Sprawdzenie rejestrów... ");
-        if (cpu.R.Length != 16)
-            throw new Exception("Błąd: Nieprawidłowa liczba rejestrów");
-        Console.WriteLine("OK");
+        // Demo program: LDI 0x41; NOP
+        cpu.Memory[0x0000] = 0xF8; // LDI
+        cpu.Memory[0x0001] = 0x41; // 'A'
+        cpu.Memory[0x0002] = 0xC4; // NOP
 
-        // Test 4: Sprawdzenie pamięci
-        Console.Write("Test 4: Sprawdzenie pamięci... ");
-        if (cpu.Memory.Length != 65536)
-            throw new Exception("Błąd: Nieprawidłowy rozmiar pamięci");
-        Console.WriteLine("OK");
+        Console.WriteLine("Registered peripherals:");
+        Console.WriteLine($"  UART  @ 0x{uart.BaseAddress:X4} ({uart.Size} bytes)");
+        Console.WriteLine($"  Timer @ 0x{timer.BaseAddress:X4} ({timer.Size} bytes)");
+        Console.WriteLine($"  GPIO  @ 0x{gpio.BaseAddress:X4} ({gpio.Size} bytes)");
+        Console.WriteLine();
 
-        // Test 5: MemoryBus
-        Console.Write("Test 5: MemoryBus... ");
-        var memory = new MemoryBus();
-        memory.Write(0x1000, 0xAB);
-        if (memory.Read(0x1000) != 0xAB)
-            throw new Exception("Błąd: MemoryBus nie działa poprawnie");
-        Console.WriteLine("OK");
-
-        // Test 6: IPeripheral
-        Console.Write("Test 6: IPeripheral... ");
-        var peripheral = new TestPeripheral();
-        peripheral.Write(0, 0x42);
-        if (peripheral.Read(0) != 0x42)
-            throw new Exception("Błąd: IPeripheral nie działa poprawnie");
-        Console.WriteLine("OK");
-
-        // Test 7: Step() works
-        Console.Write("Test 7: Step() executes... ");
-        try
+        Console.WriteLine("Execution trace:");
+        for (int i = 0; i < 3; i++)
         {
-            cpu.Memory[0] = 0xC4; // NOP
+            ushort pc = cpu.R[cpu.P];
+            byte opcode = cpu.Memory[pc];
+            Console.Write($"  PC=0x{pc:X4}  opcode=0x{opcode:X2}  ");
             cpu.Step();
-            if (cpu.TotalCycles != 3)
-                throw new Exception("Błąd: Step() niepoprawnie liczy cykle");
-            Console.WriteLine("OK");
-        }
-        catch (NotImplementedException)
-        {
-            throw new Exception("Błąd: Step() powinien być zaimplementowany");
+            Console.WriteLine($"D=0x{cpu.D:X2}  cycles={cpu.TotalCycles}");
         }
 
         Console.WriteLine();
-        Console.WriteLine("=== Wszystkie testy przeszły pomyślnie! ===");
+        Console.WriteLine("Peripheral state:");
+        Console.WriteLine($"  UART TX: 0x{uart.LastTransmittedByte:X2} (has transmitted: {uart.HasTransmitted})");
+        Console.WriteLine($"  GPIO output: 0x{gpio.OutputValue:X2}");
+        Console.WriteLine($"  Timer counter: {timer.Counter}");
+
         Console.WriteLine();
-    }
-}
-
-/// <summary>
-/// Testowa implementacja peryferium do testów CLI.
-/// </summary>
-internal class TestPeripheral : IPeripheral
-{
-    private readonly byte[] _registers = new byte[16];
-
-    public string Name => "Test";
-    public ushort BaseAddress => 0xC000;
-    public int Size => 16;
-
-    public byte Read(ushort offset)
-    {
-        if (offset >= _registers.Length)
-            throw new ArgumentOutOfRangeException(nameof(offset));
-
-        return _registers[offset];
-    }
-
-    public void Write(ushort offset, byte value)
-    {
-        if (offset >= _registers.Length)
-            throw new ArgumentOutOfRangeException(nameof(offset));
-
-        _registers[offset] = value;
-    }
-
-    public void Reset()
-    {
-        Array.Clear(_registers);
+        Console.WriteLine("=== Demo complete! ===");
     }
 }

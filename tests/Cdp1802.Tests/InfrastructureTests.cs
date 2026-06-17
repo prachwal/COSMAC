@@ -121,6 +121,67 @@ public class InfrastructureTests
         peripheral.Reset();
         Assert.Equal(0x00, peripheral.Read(0));
     }
+
+    [Fact]
+    public void ClearPin_ResetsProcessor()
+    {
+        var cpu = new Core.Cdp1802();
+        cpu.D = 0xFF;
+        cpu.DF = true;
+        cpu.Q = true;
+
+        cpu.ClearPin = false;
+        cpu.Step();
+
+        Assert.Equal(0, cpu.D);
+        Assert.False(cpu.DF);
+        Assert.False(cpu.Q);
+        Assert.True(cpu.IE);
+    }
+
+    [Fact]
+    public void WaitPin_HaltsProcessor()
+    {
+        var cpu = new Core.Cdp1802();
+        cpu.Memory[0] = 0xF8;
+        cpu.Memory[1] = 0x42;
+
+        cpu.WaitPin = true;
+        cpu.Step();
+
+        Assert.True(cpu.IsHalted);
+        Assert.Equal(0, cpu.D);
+    }
+
+    [Fact]
+    public void WaitPin_ReleaseResumes()
+    {
+        var cpu = new Core.Cdp1802();
+        cpu.Memory[0] = 0xF8;
+        cpu.Memory[1] = 0x42;
+
+        cpu.WaitPin = true;
+        cpu.Step();
+        cpu.WaitPin = false;
+        cpu.Step();
+
+        Assert.False(cpu.IsHalted);
+        Assert.Equal(0x42, cpu.D);
+    }
+
+    [Fact]
+    public void PausePin_HaltsAfterInstruction()
+    {
+        var cpu = new Core.Cdp1802();
+        cpu.Memory[0] = 0xF8;
+        cpu.Memory[1] = 0x42;
+
+        cpu.PausePin = true;
+        cpu.Step();
+
+        Assert.True(cpu.IsHalted);
+        Assert.Equal(0x42, cpu.D);
+    }
 }
 
 /// <summary>
