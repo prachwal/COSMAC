@@ -154,7 +154,11 @@ public class Cdp1802
     }
 
     /// <summary>
-    /// Wykonanie jednej instrukcji (fetch + execute).
+    /// Wykonanie jednej instrukcji (S0-S3 cykl maszynowy).
+    /// S0: Fetch - place address on bus, latch opcode
+    /// S1: Execute - decode and execute instruction
+    /// S2: Memory - memory read/write for memory reference instructions
+    /// S3: DMA/Interrupt - check DMA and interrupts
     /// </summary>
     public void Step()
     {
@@ -193,8 +197,12 @@ public class Cdp1802
         // S1: Execute - decode and execute instruction
         State = MachineState.S1_Execute;
         TpaPin = false;
-        TpbPin = true;
         ExecuteInstruction(opcode);
+
+        // S2: Memory - memory read/write (for memory reference instructions)
+        // This is a separate state for memory access timing
+        State = MachineState.S2_Memory;
+        TpbPin = true;
 
         // S3: Check DMA and Interrupts
         State = MachineState.S3_DMA_Interrupt;
