@@ -1,0 +1,157 @@
+namespace Cdp1802.Core;
+
+/// <summary>
+/// File format loaders for CDP1802.
+/// Supports S-Record, COM/CP/M, and Symbol Table.
+/// </summary>
+public static class FileFormats
+{
+    #region S-Record (Motorola)
+
+    /// <summary>
+    /// Load S-Record file (.srec, .s19).
+    /// Returns number of bytes loaded.
+    /// </summary>
+    public static int LoadSRecord(MemoryBus memory, string filename)
+    {
+        int bytesLoaded = 0;
+        foreach (string line in File.ReadLines(filename))
+        {
+            if (string.IsNullOrWhiteSpace(line) || !line.StartsWith('S'))
+                continue;
+
+            char recordType = line[1];
+            if (recordType == '9') // End record
+                break;
+
+            if (recordType != '1' && recordType != '2') // Only S1/S2 data records
+                continue;
+
+            int byteCount = Convert.ToInt32(line.Substring(2, 2), 16);
+            int addressBytes = recordType == '1' ? 2 : 3;
+            int address = Convert.ToInt32(line.Substring(4, addressBytes * 2), 16);
+            int dataStart = 4 + addressBytes * 2;
+            int dataBytes = byteCount - addressBytes - 1;
+
+            for (int i = 0; i < dataBytes; i++)
+            {
+                int offset = dataStart + i * 2;
+                if (offset + 2 > line.Length) break;
+                byte b = Convert.ToByte(line.Substring(offset, 2), 16);
+                memory.Write((ushort)(address + i), b);
+                bytesLoaded++;
+            }
+        }
+        return bytesLoaded;
+    }
+
+    /// <summary>
+    /// Save memory to S-Record file.
+    /// </summary>
+    public static void SaveSRecord(MemoryBus memory, string filename, ushort startAddress, int length)
+    {
+        using var writer = new StreamWriter(filename);
+        int remaining = length;
+        ushort address = startAddress;
+
+        while (remaining > 0)
+        {
+            int chunkSize = Math.Min(16, remaining);
+            var sb = new System.Text.StringBuilder();
+            sb.Append("S1");
+            sb.Append($"{chunkSize + 3:X2}"); // Data + address + checksum
+            sb.Append($"{address:X4}");
+
+            byte checksum = (byte)(chunkSize + 3);
+            checksum += (byte)(address >> 8);
+            checksum += (byte)(address & 0xFF);
+
+            for (int i = 0; i < chunkSize; i++)
+            {
+                byte b = memory.Read((ushort)(address + i));
+                sb.Append($"{b:X2}");
+                checksum += b;
+            }
+
+            checksum = (byte)~checksum;
+            sb.Append($"{checksum:X2}");
+
+            writer.WriteLine(sb.ToString());
+            address += (ushort)chunkSize;
+            remaining -= chunkSize;
+        }
+
+        // End record
+        writer.WriteLine("S9030000FC");
+    }
+
+    #endregion
+
+    #region COM/CP/M
+
+    /// <summary>
+    /// Load COM file (CP/M style, loads at 0x0100).
+    /// Returns number of bytes loaded.
+    /// </summary>
+    public static int LoadCom(MemoryBus memory, string filename, ushort loadAddress = 0x0100)
+    {
+        byte[] data = File.ReadAllBytes(filename);
+        for (int i = 0; i < data.Length; i++)
+            memory.Write((ushort)(loadAddress + i), data[i]);
+        return data.Length;
+    }
+
+    /// <summary>
+    /// Save memory range as COM file.
+    /// </summary>
+    public static void SaveCom(MemoryBus memory, string filename, ushort startAddress, int length)
+    {
+        byte[] data = new byte[length];
+        for (int i = 0; i < length; i++)
+            data[i] = memory.Read((ushort)(startAddress + i));
+        File.WriteAllBytes(filename, data);
+    }
+
+    #endregion
+
+    #region Symbol Table
+
+    /// <summary>
+    /// Load symbol table (.sym).
+    /// Format: SYMBOL EQU ADDRESS
+    /// Returns dictionary of symbol -> address.
+    /// </summary>
+    public static Dictionary<string, ushort> LoadSymbolTable(string filename)
+    {
+        var symbols = new Dictionary<string, ushort>(StringComparer.OrdinalIgnoreCase);
+        foreach (string line in File.ReadLines(filename))
+        {
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith(';'))
+                continue;
+
+            string[] parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length >= 3 && parts[1].Equals("EQU", StringComparison.OrdinalIgnoreCase))
+            {
+                string symbol = parts[0];
+                if (ushort.TryParse(parts[2].Replace("0x", ""), System.Globalization.NumberStyles.HexNumber, null, out ushort address))
+                    symbols[symbol] = address;
+            }
+        }
+        return symbols;
+    }
+
+    /// <summary>
+    /// Save symbol table.
+    /// </summary>
+    public static void SaveSymbolTable(Dictionary<string, ushort> symbols, string filename)
+    {
+        using var writer = new StreamWriter(filename);
+        writer.WriteLine("; Symbol Table");
+        writer.WriteLine("; Generated by CDP1802 Emulator");
+        writer.WriteLine();
+        foreach (var kv in symbols.OrderBy(x => x.Value))
+            writer.WriteLine($"{kv.Key,-16} EQU 0x{kv.Value:X4}");
+    }
+
+    #endregion
+}
