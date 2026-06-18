@@ -56,8 +56,20 @@ public class Program
                 case "--benchmark":
                     Benchmark.RunAll();
                     break;
+                case "--assemble":
+                    if (args.Length < 2)
+                    {
+                        Console.WriteLine("Usage: Cdp1802.Cli --assemble <input.asm> [output.bin]");
+                        return;
+                    }
+                    AssembleFile(args[1], args.Length > 2 ? args[2] : Path.ChangeExtension(args[1], ".bin"));
+                    break;
+                case "--help":
+                    PrintUsage();
+                    break;
                 default:
-                    Console.WriteLine("Usage: Cdp1802.Cli [--demo|--benchmark]");
+                    Console.WriteLine($"Unknown command: {args[0]}");
+                    PrintUsage();
                     break;
             }
         }
@@ -83,5 +95,66 @@ public class Program
 
         Console.WriteLine(sys.GetStatus());
         Console.WriteLine("=== Demo complete! ===");
+    }
+
+    private static void AssembleFile(string inputPath, string outputPath)
+    {
+        try
+        {
+            if (!File.Exists(inputPath))
+            {
+                Console.WriteLine($"Error: File not found: {inputPath}");
+                return;
+            }
+
+            string source = File.ReadAllText(inputPath);
+            Console.WriteLine($"Assembling: {inputPath}");
+
+            var result = Assembler.Assemble(source);
+
+            if (!result.Success)
+            {
+                Console.WriteLine($"Assembly failed with {result.Errors.Count} error(s):");
+                foreach (var error in result.Errors)
+                    Console.WriteLine($"  ✗ {error}");
+                return;
+            }
+
+            // Write binary output
+            File.WriteAllBytes(outputPath, result.Binary);
+
+            Console.WriteLine($"✓ Assembly successful!");
+            Console.WriteLine($"  Origin:  0x{result.Origin:X4}");
+            Console.WriteLine($"  Size:    {result.Binary.Length} bytes");
+            Console.WriteLine($"  Output:  {outputPath}");
+            Console.WriteLine();
+
+            // Show listing
+            if (!string.IsNullOrEmpty(result.Listing))
+            {
+                Console.WriteLine("Listing:");
+                Console.WriteLine(result.Listing);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+    private static void PrintUsage()
+    {
+        Console.WriteLine("Usage: Cdp1802.Cli [command] [options]");
+        Console.WriteLine();
+        Console.WriteLine("Commands:");
+        Console.WriteLine("  (no args)              Interactive debugger");
+        Console.WriteLine("  --demo                 Run demo program");
+        Console.WriteLine("  --benchmark            Run performance benchmark");
+        Console.WriteLine("  --assemble <in> [out]  Assemble ASM file to binary");
+        Console.WriteLine("  --help                 Show this help");
+        Console.WriteLine();
+        Console.WriteLine("Examples:");
+        Console.WriteLine("  dotnet run -- --assemble UART_DEMO.asm UART_DEMO.bin");
+        Console.WriteLine("  dotnet run -- --assemble program.asm");
     }
 }
