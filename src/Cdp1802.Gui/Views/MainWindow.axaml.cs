@@ -45,6 +45,39 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void OnLoadAsmFile(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel == null) return;
+
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Load ASM File",
+            AllowMultiple = false,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("Assembly files") { Patterns = new[] { "*.asm", "*.a1802" } },
+                new FilePickerFileType("Text files") { Patterns = new[] { "*.txt" } },
+                new FilePickerFileType("All files") { Patterns = new[] { "*.*" } }
+            }
+        });
+
+        if (files.Count > 0)
+        {
+            try
+            {
+                string source = await System.IO.File.ReadAllTextAsync(files[0].Path.LocalPath);
+                ViewModel.AssemblerSource = source;
+                ViewModel.SelectedCodeTab = 1;  // Switch to Assembler tab
+                ViewModel.StatusMessage = $"Loaded: {System.IO.Path.GetFileName(files[0].Path.LocalPath)}";
+            }
+            catch (Exception ex)
+            {
+                ViewModel.StatusMessage = $"Error loading file: {ex.Message}";
+            }
+        }
+    }
+
     private void OnExit(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         Close();

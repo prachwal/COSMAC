@@ -29,6 +29,7 @@
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
                 <MenuItem Header="_Load Binary..." Click="OnLoadFile"/>
+                <MenuItem Header="_Load ASM File..." Click="OnLoadAsmFile"/>
                 <MenuItem Header="_Assemble &amp; Load (F6)" Command="{Binding AssembleAndLoadCommand}"/>
                 <Separator/>
                 <MenuItem Header="_Settings..." Click="OnSettings"/>
