@@ -2,10 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Cdp1802.Core;
 using Cdp1802.Gui.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Timer = Cdp1802.Core.Timer;
 
 namespace Cdp1802.Gui.ViewModels;
 
@@ -22,7 +25,7 @@ public partial class Cdp1802ViewModel : ObservableObject
     private readonly FastInterpreter _fastInterpreter;
     private readonly Dictionary<string, string> _previousValues = new();
     private bool _running;
-    private System.Threading.Timer? _runTimer;
+    private CancellationTokenSource? _runCts;
     private System.Threading.Timer? _changeClearTimer;
 
     private static readonly string[] RegisterNames =
@@ -285,7 +288,7 @@ public partial class Cdp1802ViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void Run()
+    private async Task RunAsync()
     {
         if (_running)
         {
@@ -296,44 +299,55 @@ public partial class Cdp1802ViewModel : ObservableObject
         _running = true;
         IsRunning = true;
         StatusMessage = "Running...";
+        _runCts = new CancellationTokenSource();
+        var token = _runCts.Token;
 
-        _runTimer = new System.Threading.Timer(_ =>
+        await Task.Run(() =>
         {
-            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            while (!token.IsCancellationRequested)
             {
-                if (!_running)
-                    return;
-
                 for (int i = 0; i < 1000; i++)
                 {
+                    if (token.IsCancellationRequested) return;
+
                     if (_cpu.IsHalted)
                     {
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            StatusMessage = $"Halted (IDL) at 0x{_cpu.R[_cpu.P]:X4}";
+                            RefreshAll();
+                        });
                         StopRun();
-                        StatusMessage = $"Halted (IDL) at 0x{_cpu.R[_cpu.P]:X4}";
-                        RefreshAll();
                         return;
                     }
 
                     if (_debugger.Step())
                     {
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            StatusMessage = $"Breakpoint hit at 0x{_cpu.R[_cpu.P]:X4}";
+                            RefreshAll();
+                        });
                         StopRun();
-                        StatusMessage = $"Breakpoint hit at 0x{_cpu.R[_cpu.P]:X4}";
-                        RefreshAll();
                         return;
                     }
                 }
 
-                RefreshAll();
-            });
-        }, null, 0, 10);
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshAll());
+            }
+        }, token);
+
+        if (!token.IsCancellationRequested)
+            StopRun();
     }
 
     private void StopRun()
     {
         _running = false;
         IsRunning = false;
-        _runTimer?.Dispose();
-        _runTimer = null;
+        _runCts?.Cancel();
+        _runCts?.Dispose();
+        _runCts = null;
         StatusMessage = "Stopped";
     }
 
