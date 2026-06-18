@@ -12,8 +12,6 @@ public class TerminalUI : IDisposable
     private readonly Debugger _debugger;
     private readonly IPeripheral[] _peripherals;
     private bool _running;
-    private int _panelWidth = 60;
-    private int _panelHeight = 20;
 
     // ANSI escape helpers
     private const string ESC = "\x1b[";
