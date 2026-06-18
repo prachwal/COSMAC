@@ -18,6 +18,7 @@
     </Design.DataContext>
 
     <Window.KeyBindings>
+        <KeyBinding Gesture="F6" Command="{Binding AssembleAndLoadCommand}"/>
         <KeyBinding Gesture="F7" Command="{Binding StepCommand}"/>
         <KeyBinding Gesture="F5" Command="{Binding RunCommand}"/>
         <KeyBinding Gesture="F9" Command="{Binding ResetCommand}"/>
@@ -27,8 +28,16 @@
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
                 <MenuItem Header="_Load Binary..." Click="OnLoadFile"/>
+                <MenuItem Header="_Assemble &amp; Load (F6)" Command="{Binding AssembleAndLoadCommand}"/>
                 <Separator/>
                 <MenuItem Header="E_xit" Click="OnExit"/>
+            </MenuItem>
+            <MenuItem Header="_Examples">
+                <MenuItem Header="Hello Byte" Command="{Binding LoadExampleCommand}" CommandParameter="hello"/>
+                <MenuItem Header="Counter Loop" Command="{Binding LoadExampleCommand}" CommandParameter="counter"/>
+                <MenuItem Header="Q Toggle" Command="{Binding LoadExampleCommand}" CommandParameter="blink"/>
+                <MenuItem Header="Add / Subtract" Command="{Binding LoadExampleCommand}" CommandParameter="add_test"/>
+                <MenuItem Header="Branch Demo" Command="{Binding LoadExampleCommand}" CommandParameter="branch_demo"/>
             </MenuItem>
             <MenuItem Header="_Emulation">
                 <MenuItem Header="_Step (F7)" Command="{Binding StepCommand}"/>
@@ -212,57 +221,103 @@
                           ResizeDirection="Columns"
                           Background="{StaticResource BorderSubtleBrush}"/>
 
-            <Border Grid.Row="0" Grid.Column="2" Classes="cosmac-panel">
-                <DockPanel>
-                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-                        <TextBlock Grid.Column="0" Text="Disassembly" Classes="section-header" Margin="0"/>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="BP @" VerticalAlignment="Center" Foreground="{StaticResource TextMutedBrush}"/>
-                            <TextBox Classes="cosmac-input"
-                                     Text="{Binding BreakpointAddress}"
-                                     PlaceholderText="0000"
-                                     Width="72"/>
-                            <Button Content="Set"
-                                    Command="{Binding ToggleBreakpointCommand}"
-                                    Padding="8,4"
-                                    VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Grid>
-
-                    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled"
-                                  Background="{StaticResource BackgroundEditorBrush}">
-                        <ItemsControl ItemsSource="{Binding DisassemblyLines}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="models:DisassemblyLine">
-                                    <Border Classes="disasm-line" Classes.current="{Binding IsCurrent}">
-                                        <StackPanel Orientation="Horizontal" Spacing="4">
-                                            <TextBlock Text="{Binding Marker}"
-                                                       Width="14"
-                                                       FontFamily="{StaticResource MonoFont}"
-                                                       Foreground="{StaticResource AccentSecondaryBrush}"/>
-                                            <TextBlock Text="●"
-                                                       Foreground="{StaticResource BreakpointBrush}"
-                                                       IsVisible="{Binding HasBreakpoint}"
-                                                       FontSize="10"
-                                                       VerticalAlignment="Center"/>
-                                            <TextBlock Text="{Binding Address}"
-                                                       FontFamily="{StaticResource MonoFont}"
-                                                       Foreground="{StaticResource SyntaxAddressBrush}"/>
-                                            <TextBlock Text="{Binding Opcode}"
-                                                       FontFamily="{StaticResource MonoFont}"
-                                                       Foreground="{StaticResource SyntaxOpcodeBrush}"
-                                                       FontWeight="SemiBold"/>
-                                            <TextBlock Text="{Binding Operand}"
-                                                       FontFamily="{StaticResource MonoFont}"
-                                                       Foreground="{StaticResource SyntaxOperandBrush}"/>
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </DockPanel>
+            <Border Grid.Row="0" Grid.Column="2" Classes="cosmac-panel" Padding="6,6,6,4">
+                <TabControl SelectedIndex="{Binding SelectedCodeTab}">
+                    <TabItem Header="Disassembly">
+                        <DockPanel Margin="4,8,4,4">
+                            <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                                <TextBlock Grid.Column="0" Text="Live trace at PC" Foreground="{StaticResource TextMutedBrush}" FontSize="11"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="BP @" VerticalAlignment="Center" Foreground="{StaticResource TextMutedBrush}"/>
+                                    <TextBox Classes="cosmac-input"
+                                             Text="{Binding BreakpointAddress}"
+                                             PlaceholderText="0000"
+                                             Width="72"/>
+                                    <Button Content="Set"
+                                            Command="{Binding ToggleBreakpointCommand}"
+                                            Padding="8,4"
+                                            VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          Background="{StaticResource BackgroundEditorBrush}">
+                                <ItemsControl ItemsSource="{Binding DisassemblyLines}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:DisassemblyLine">
+                                            <Border Classes="disasm-line" Classes.current="{Binding IsCurrent}">
+                                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                                    <TextBlock Text="{Binding Marker}"
+                                                               Width="14"
+                                                               FontFamily="{StaticResource MonoFont}"
+                                                               Foreground="{StaticResource AccentSecondaryBrush}"/>
+                                                    <TextBlock Text="●"
+                                                               Foreground="{StaticResource BreakpointBrush}"
+                                                               IsVisible="{Binding HasBreakpoint}"
+                                                               FontSize="10"
+                                                               VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding Address}"
+                                                               FontFamily="{StaticResource MonoFont}"
+                                                               Foreground="{StaticResource SyntaxAddressBrush}"/>
+                                                    <TextBlock Text="{Binding Opcode}"
+                                                               FontFamily="{StaticResource MonoFont}"
+                                                               Foreground="{StaticResource SyntaxOpcodeBrush}"
+                                                               FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding Operand}"
+                                                               FontFamily="{StaticResource MonoFont}"
+                                                               Foreground="{StaticResource SyntaxOperandBrush}"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </TabItem>
+                    <TabItem Header="Assembler">
+                        <DockPanel Margin="4,8,4,4">
+                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="6" Margin="0,0,0,8">
+                                <Button Classes="cosmac-toolbar"
+                                        Content="⚙ Assemble &amp; Load"
+                                        Command="{Binding AssembleAndLoadCommand}"
+                                        ToolTip.Tip="Assemble source and load into memory (F6)"/>
+                                <TextBlock Text="; comments · ORG · DB · labels · R0-RF"
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           FontSize="11"/>
+                            </StackPanel>
+                            <Grid RowDefinitions="*,Auto,120">
+                                <TextBox Grid.Row="0"
+                                         Classes="cosmac-editor"
+                                         Text="{Binding AssemblerSource}"
+                                         AcceptsReturn="True"
+                                         TextWrapping="NoWrap"
+                                         MinHeight="180"/>
+                                <TextBlock Grid.Row="1"
+                                           Text="{Binding AssemblerErrors}"
+                                           Foreground="{StaticResource BreakpointBrush}"
+                                           FontFamily="{StaticResource MonoFont}"
+                                           FontSize="11"
+                                           Margin="0,6,0,4"
+                                           TextWrapping="Wrap"/>
+                                <DockPanel Grid.Row="2">
+                                    <TextBlock Text="Listing"
+                                               DockPanel.Dock="Top"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               FontSize="11"
+                                               Margin="0,0,0,4"/>
+                                    <ScrollViewer Background="{StaticResource BackgroundEditorBrush}">
+                                        <TextBox Classes="cosmac-editor"
+                                                 FontSize="11"
+                                                 Foreground="{StaticResource TextMutedBrush}"
+                                                 Text="{Binding AssemblerListing}"
+                                                 IsReadOnly="True"/>
+                                    </ScrollViewer>
+                                </DockPanel>
+                            </Grid>
+                        </DockPanel>
+                    </TabItem>
+                </TabControl>
             </Border>
 
             <GridSplitter Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"

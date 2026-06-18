@@ -26,6 +26,7 @@ public class Cdp1802
 
     // Peryferia (memory-mapped I/O)
     private readonly List<IPeripheral> _peripherals = new();
+    private bool _pcUpdated;
 
     // Licznik cykli
     public ulong TotalCycles { get; private set; }
@@ -192,12 +193,18 @@ public class Cdp1802
         State = MachineState.S0_Fetch;
         TpaPin = true;
         TpbPin = false;
-        byte opcode = Memory[R[P]];
+        byte pBefore = P;
+        ushort fetchPc = R[pBefore];
+        byte opcode = Memory[fetchPc];
+        _pcUpdated = false;
 
         // S1: Execute - decode and execute instruction
         State = MachineState.S1_Execute;
         TpaPin = false;
         ExecuteInstruction(opcode);
+
+        if (!_pcUpdated && P == pBefore)
+            R[pBefore] += (ushort)InstructionTiming.GetInstructionLength(opcode);
 
         // S2: Memory - memory read/write (for memory reference instructions)
         // This is a separate state for memory access timing
@@ -699,6 +706,7 @@ public class Cdp1802
 
     private void LDI()
     {
+        _pcUpdated = true;
         R[P]++;
         D = Memory[R[P]];
         R[P]++;
@@ -778,6 +786,7 @@ public class Cdp1802
 
     private void ADCI()
     {
+        _pcUpdated = true;
         R[P]++;
         byte imm = Memory[R[P]];
         R[P]++;
@@ -789,6 +798,7 @@ public class Cdp1802
 
     private void SDBI()
     {
+        _pcUpdated = true;
         R[P]++;
         byte imm = Memory[R[P]];
         R[P]++;
@@ -800,6 +810,7 @@ public class Cdp1802
 
     private void SMBI()
     {
+        _pcUpdated = true;
         R[P]++;
         byte imm = Memory[R[P]];
         R[P]++;
@@ -859,6 +870,7 @@ public class Cdp1802
 
     private void ORI()
     {
+        _pcUpdated = true;
         R[P]++;
         byte imm = Memory[R[P]];
         R[P]++;
@@ -868,6 +880,7 @@ public class Cdp1802
 
     private void ANI()
     {
+        _pcUpdated = true;
         R[P]++;
         byte imm = Memory[R[P]];
         R[P]++;
@@ -877,6 +890,7 @@ public class Cdp1802
 
     private void XRI()
     {
+        _pcUpdated = true;
         R[P]++;
         byte imm = Memory[R[P]];
         R[P]++;
@@ -886,6 +900,7 @@ public class Cdp1802
 
     private void ADI()
     {
+        _pcUpdated = true;
         R[P]++;
         byte imm = Memory[R[P]];
         R[P]++;
@@ -897,6 +912,7 @@ public class Cdp1802
 
     private void SDI()
     {
+        _pcUpdated = true;
         R[P]++;
         byte imm = Memory[R[P]];
         R[P]++;
@@ -908,6 +924,7 @@ public class Cdp1802
 
     private void SMI()
     {
+        _pcUpdated = true;
         R[P]++;
         byte imm = Memory[R[P]];
         R[P]++;
@@ -923,6 +940,7 @@ public class Cdp1802
 
     private void BR()
     {
+        _pcUpdated = true;
         R[P]++;
         R[P] = (ushort)((R[P] & 0xFF00) | Memory[R[P]]);
         TotalCycles += 2;
@@ -930,6 +948,7 @@ public class Cdp1802
 
     private void BZ()
     {
+        _pcUpdated = true;
         R[P]++;
         if (D == 0)
         {
@@ -944,6 +963,7 @@ public class Cdp1802
 
     private void BNZ()
     {
+        _pcUpdated = true;
         R[P]++;
         if (D != 0)
         {
@@ -958,6 +978,7 @@ public class Cdp1802
 
     private void BDF()
     {
+        _pcUpdated = true;
         R[P]++;
         if (DF)
         {
@@ -972,6 +993,7 @@ public class Cdp1802
 
     private void BNF()
     {
+        _pcUpdated = true;
         R[P]++;
         if (!DF)
         {
@@ -986,6 +1008,7 @@ public class Cdp1802
 
     private void BQ()
     {
+        _pcUpdated = true;
         R[P]++;
         if (Q)
         {
@@ -1000,6 +1023,7 @@ public class Cdp1802
 
     private void BNQ()
     {
+        _pcUpdated = true;
         R[P]++;
         if (!Q)
         {
@@ -1014,6 +1038,7 @@ public class Cdp1802
 
     private void B1()
     {
+        _pcUpdated = true;
         R[P]++;
         if (EF1)
         {
@@ -1028,6 +1053,7 @@ public class Cdp1802
 
     private void BN1()
     {
+        _pcUpdated = true;
         R[P]++;
         if (!EF1)
         {
@@ -1042,6 +1068,7 @@ public class Cdp1802
 
     private void B4()
     {
+        _pcUpdated = true;
         R[P]++;
         if (EF4)
         {
@@ -1056,6 +1083,7 @@ public class Cdp1802
 
     private void BN4()
     {
+        _pcUpdated = true;
         R[P]++;
         if (!EF4)
         {
@@ -1070,6 +1098,7 @@ public class Cdp1802
 
     private void B2()
     {
+        _pcUpdated = true;
         R[P]++;
         if (EF2)
         {
@@ -1084,6 +1113,7 @@ public class Cdp1802
 
     private void BN2()
     {
+        _pcUpdated = true;
         R[P]++;
         if (!EF2)
         {
@@ -1098,6 +1128,7 @@ public class Cdp1802
 
     private void B3()
     {
+        _pcUpdated = true;
         R[P]++;
         if (EF3)
         {
@@ -1112,6 +1143,7 @@ public class Cdp1802
 
     private void BN3()
     {
+        _pcUpdated = true;
         R[P]++;
         if (!EF3)
         {
@@ -1126,6 +1158,7 @@ public class Cdp1802
 
     private void SKP()
     {
+        _pcUpdated = true;
         R[P]++;
         R[P]++;
         TotalCycles += 2;
@@ -1137,6 +1170,7 @@ public class Cdp1802
 
     private void LBR()
     {
+        _pcUpdated = true;
         R[P]++;
         byte lo = Memory[R[P]];
         R[P]++;
@@ -1147,6 +1181,7 @@ public class Cdp1802
 
     private void LBZ()
     {
+        _pcUpdated = true;
         R[P]++;
         byte lo = Memory[R[P]];
         R[P]++;
@@ -1160,6 +1195,7 @@ public class Cdp1802
 
     private void LBNZ()
     {
+        _pcUpdated = true;
         R[P]++;
         byte lo = Memory[R[P]];
         R[P]++;
@@ -1173,6 +1209,7 @@ public class Cdp1802
 
     private void LBDF()
     {
+        _pcUpdated = true;
         R[P]++;
         byte lo = Memory[R[P]];
         R[P]++;
@@ -1190,6 +1227,7 @@ public class Cdp1802
 
     private void LBNF()
     {
+        _pcUpdated = true;
         R[P]++;
         byte lo = Memory[R[P]];
         R[P]++;
@@ -1207,18 +1245,21 @@ public class Cdp1802
 
     private void NOP()
     {
+        _pcUpdated = true;
         R[P] += 1;
         TotalCycles += 2;
     }
 
     private void LSKP()
     {
+        _pcUpdated = true;
         R[P] += 3;
         TotalCycles += 3;
     }
 
     private void LBQ()
     {
+        _pcUpdated = true;
         R[P]++;
         byte lo = Memory[R[P]];
         R[P]++;
@@ -1236,6 +1277,7 @@ public class Cdp1802
 
     private void LBNQ()
     {
+        _pcUpdated = true;
         R[P]++;
         byte lo = Memory[R[P]];
         R[P]++;
@@ -1253,6 +1295,7 @@ public class Cdp1802
 
     private void LSNQ()
     {
+        _pcUpdated = true;
         if (!Q)
         {
             R[P] += 3;
@@ -1262,6 +1305,7 @@ public class Cdp1802
 
     private void LSQ()
     {
+        _pcUpdated = true;
         if (Q)
         {
             R[P] += 3;
@@ -1271,6 +1315,7 @@ public class Cdp1802
 
     private void LSNZ()
     {
+        _pcUpdated = true;
         if (D != 0)
         {
             R[P] += 3;
@@ -1280,6 +1325,7 @@ public class Cdp1802
 
     private void LSZ()
     {
+        _pcUpdated = true;
         if (D == 0)
         {
             R[P] += 3;
@@ -1289,6 +1335,7 @@ public class Cdp1802
 
     private void LSNF()
     {
+        _pcUpdated = true;
         if (!DF)
         {
             R[P] += 3;
@@ -1298,6 +1345,7 @@ public class Cdp1802
 
     private void LSDF()
     {
+        _pcUpdated = true;
         if (DF)
         {
             R[P] += 3;
@@ -1307,6 +1355,7 @@ public class Cdp1802
 
     private void LSIE()
     {
+        _pcUpdated = true;
         if (IE)
         {
             R[P] += 3;
@@ -1320,12 +1369,13 @@ public class Cdp1802
 
     private void IDL()
     {
-        // Idle - wait for DMA/Interrupt, PC stays at current position
+        _pcUpdated = true;
         TotalCycles += 2;
     }
 
     private void SEP(byte n)
     {
+        _pcUpdated = true;
         P = n;
         TotalCycles += 2;
     }

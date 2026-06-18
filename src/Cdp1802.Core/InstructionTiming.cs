@@ -107,6 +107,23 @@ public static class InstructionTiming
     }
 
     /// <summary>
+    /// Get instruction length in bytes.
+    /// </summary>
+    public static int GetInstructionLength(byte opcode)
+    {
+        if (opcode is 0xF8 or 0xF9 or 0xFA or 0xFB or 0xFC or 0xFD or 0xFF or 0x7C or 0x7D or 0x7F)
+            return 2;
+
+        if ((opcode & 0xF0) == 0x30)
+            return 2;
+
+        if ((opcode & 0xF0) == 0xC0 && opcode is not (0xC4 or 0xC5 or 0xC6 or 0xC7 or 0xC8 or 0xCC or 0xCD or 0xCE or 0xCF))
+            return 3;
+
+        return 1;
+    }
+
+    /// <summary>
     /// Get cycle count for opcode.
     /// </summary>
     public static int GetCycles(byte opcode)

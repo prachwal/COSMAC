@@ -61,9 +61,14 @@ public partial class Cdp1802ViewModel : ObservableObject
     [ObservableProperty] private string _memoryAddress = "0000";
     [ObservableProperty] private string _traceLog = "";
     [ObservableProperty] private bool _isTraceExpanded;
+    [ObservableProperty] private string _assemblerSource = "";
+    [ObservableProperty] private string _assemblerListing = "";
+    [ObservableProperty] private string _assemblerErrors = "";
+    [ObservableProperty] private int _selectedCodeTab;
 
     public ObservableCollection<RegisterItem> GeneralRegisters { get; } = new();
     public ObservableCollection<DisassemblyLine> DisassemblyLines { get; } = new();
+    public IReadOnlyList<ExampleProgram> ExamplePrograms => Core.ExamplePrograms.All;
 
     public Cdp1802ViewModel()
     {
@@ -88,6 +93,8 @@ public partial class Cdp1802ViewModel : ObservableObject
         for (int i = 0; i < 16; i++)
             GeneralRegisters.Add(new RegisterItem { Name = RegisterNames[i], Value = "0000" });
 
+        AssemblerSource = Core.ExamplePrograms.Find("hello")?.Source ?? "";
+        MemoryAddress = "1000";
         RefreshAll();
     }
 
@@ -338,18 +345,65 @@ public partial class Cdp1802ViewModel : ObservableObject
     {
         try
         {
-            byte[] data = System.IO.File.ReadAllBytes(path);
-
-            for (int i = 0; i < data.Length && i < _cpu.Memory.Length; i++)
-                _cpu.Memory[i] = data[i];
-
-            RefreshAll();
-            StatusMessage = $"Loaded: {System.IO.Path.GetFileName(path)} ({data.Length} bytes)";
+            LoadProgramBytes(System.IO.File.ReadAllBytes(path), 0x0000);
+            StatusMessage = $"Loaded: {System.IO.Path.GetFileName(path)}";
         }
         catch (Exception ex)
         {
             StatusMessage = $"Error: {ex.Message}";
         }
+    }
+
+    private void LoadProgramBytes(byte[] data, ushort origin)
+    {
+        StopRun();
+        _cpu.Reset();
+        _previousValues.Clear();
+
+        for (int i = 0; i < data.Length && origin + i < _cpu.Memory.Length; i++)
+            _cpu.Memory[origin + i] = data[i];
+
+        RefreshAll();
+        StatusMessage = $"Loaded {data.Length} bytes @ 0x{origin:X4}";
+    }
+
+    [RelayCommand]
+    private void AssembleAndLoad()
+    {
+        var result = Assembler.Assemble(AssemblerSource);
+        if (!result.Success)
+        {
+            AssemblerErrors = string.Join(Environment.NewLine, result.Errors);
+            AssemblerListing = "";
+            StatusMessage = $"Assembly failed ({result.Errors.Count} errors)";
+            SelectedCodeTab = 1;
+            return;
+        }
+
+        AssemblerErrors = "";
+        AssemblerListing = result.Listing;
+        LoadProgramBytes(result.Binary, result.Origin);
+        SelectedCodeTab = 0;
+    }
+
+    [RelayCommand]
+    private void LoadExample(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return;
+
+        var example = Core.ExamplePrograms.Find(id);
+        if (example is null)
+        {
+            StatusMessage = $"Unknown example: {id}";
+            return;
+        }
+
+        AssemblerSource = example.Source;
+        AssemblerErrors = "";
+        AssemblerListing = "";
+        StatusMessage = $"Loaded example: {example.Title}";
+        SelectedCodeTab = 1;
     }
 
     [RelayCommand]
