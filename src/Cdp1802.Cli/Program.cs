@@ -64,6 +64,9 @@ public class Program
                     }
                     AssembleFile(args[1], args.Length > 2 ? args[2] : Path.ChangeExtension(args[1], ".bin"));
                     break;
+                case "--test-uart":
+                    UartDemoTest.Run();
+                    break;
                 case "--help":
                     PrintUsage();
                     break;

@@ -1,93 +1,56 @@
-; ==============================================================================
-; CDP1802 UART Echo Demo - Simple Version
-; ==============================================================================
-;
-; UART Memory-Mapped I/O:
-;   0x0100: TX data (write)
-;   0x0101: RX data (read)
-;   0x0102: Status (read) - bit 1 = RX available
-;
-; Program: Send "UART Ready\n" then echo any received bytes
-;
-; Registers used:
-;   R0: DMA pointer (reserved, don't modify)
-;   R1: String pointer
-;   R2: Temp/loop counter
-;   R3: UART I/O base address
-; ==============================================================================
-
+; CDP1802 UART Echo - Simple working version
 ORG 0x0000
 
-MAIN:
-    SEP R1              ; Program counter = R1
-    BR START
-
-; ============================================================================
-; DATA SECTION @ 0x0010
-; ============================================================================
-    ORG 0x0010
-
-STARTUP_MSG:
-    DB 0x55, 0x41, 0x52, 0x54    ; U A R T
-    DB 0x20, 0x52, 0x65, 0x61, 0x64, 0x79  ; space R e a d y
-    DB 0x0A             ; newline
-    DB 0x00             ; null terminator
-
-; ============================================================================
-; CODE SECTION
-; ============================================================================
-
-START:
-    ; Set R1 to point to STARTUP_MSG (0x0010)
-    LDI 0x10
+    ; R1 = 0x0018 (string address - after code)
+    LDI 0x18
     PLO R1
     LDI 0x00
-    PHI R1              ; R1 = 0x0010
+    PHI R1
 
-    ; Set R3 to UART base address (0x0100)
+    ; R3 = 0x0100 (UART TX)
     LDI 0x00
     PLO R3
     LDI 0x01
-    PHI R3              ; R3 = 0x0100
+    PHI R3
 
-    ; === Send startup message ===
-SEND_MSG_LOOP:
-    LDA R1              ; Load byte from (R1), increment R1
-    BZ SEND_DONE        ; If null terminator, exit
+; Send loop - 0x000C
+SEND:
+    LDA R1          ; Load byte from R1++
+    BZ ECHO         ; If null, goto echo
+    STR R3          ; Send to UART
+    BR SEND         ; Repeat
 
-    ; Send byte to UART TX
-    STR R3              ; Store A at address in R3 (0x0100)
-    BR SEND_MSG_LOOP
-
-SEND_DONE:
-    ; === Echo loop: wait for input and send back ===
-ECHO_LOOP:
-    ; Check UART status at 0x0102
+; Echo loop - 0x0014
+ECHO:
+    ; Check status 0x0102
     LDI 0x02
-    PLO R3              ; R3 = 0x0102 (status register)
+    PLO R3
     LDI 0x01
     PHI R3
 
-    LDN R3              ; Load status byte
-    ANI 0x02            ; Mask bit 1 (RX available)
-    BZ ECHO_LOOP        ; If zero, no data - loop again
+    LDN R3          ; Read status
+    ANI 0x02        ; RX available?
+    BZ ECHO         ; If not, loop
 
-    ; Data available! Read from RX at 0x0101
+    ; Read RX 0x0101
     LDI 0x01
-    PLO R3              ; R3 = 0x0101
+    PLO R3
     LDI 0x01
     PHI R3
+    LDN R3          ; Get byte
 
-    LDN R3              ; Load RX byte into D
-
-    ; Send it back to TX at 0x0100
+    ; Send TX 0x0100
     LDI 0x00
-    PLO R3              ; R3 = 0x0100
+    PLO R3
     LDI 0x01
     PHI R3
+    STR R3          ; Send echo
 
-    STR R3              ; Store D at TX
-    BR ECHO_LOOP        ; Loop for next byte
+    BR ECHO         ; Loop
 
-END:
-    BR END              ; Infinite loop
+; String at 0x0018
+    ORG 0x0018
+    DB 0x55, 0x41, 0x52, 0x54      ; UART
+    DB 0x20, 0x52, 0x65, 0x61, 0x64, 0x79  ; Ready
+    DB 0x0A         ; newline
+    DB 0x00         ; null
