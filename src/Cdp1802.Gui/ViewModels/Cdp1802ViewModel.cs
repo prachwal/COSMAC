@@ -17,30 +17,26 @@ namespace Cdp1802.Gui.ViewModels;
 /// <summary>
 /// Single row in hex dump view.
 /// </summary>
-public class MemoryRow : INotifyPropertyChanged
+public partial class MemoryRow : ObservableObject
 {
-    public string Address { get; set; } = "0000";
-    public string B0 { get; set; } = "--";
-    public string B1 { get; set; } = "--";
-    public string B2 { get; set; } = "--";
-    public string B3 { get; set; } = "--";
-    public string B4 { get; set; } = "--";
-    public string B5 { get; set; } = "--";
-    public string B6 { get; set; } = "--";
-    public string B7 { get; set; } = "--";
-    public string B8 { get; set; } = "--";
-    public string B9 { get; set; } = "--";
-    public string BA { get; set; } = "--";
-    public string BB { get; set; } = "--";
-    public string BC { get; set; } = "--";
-    public string BD { get; set; } = "--";
-    public string BE { get; set; } = "--";
-    public string BF { get; set; } = "--";
-    public string Ascii { get; set; } = "................";
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-    protected void OnPropertyChanged([CallerMemberName] string? name = null)
-        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+    [ObservableProperty] private string _address = "0000";
+    [ObservableProperty] private string _b0 = "--";
+    [ObservableProperty] private string _b1 = "--";
+    [ObservableProperty] private string _b2 = "--";
+    [ObservableProperty] private string _b3 = "--";
+    [ObservableProperty] private string _b4 = "--";
+    [ObservableProperty] private string _b5 = "--";
+    [ObservableProperty] private string _b6 = "--";
+    [ObservableProperty] private string _b7 = "--";
+    [ObservableProperty] private string _b8 = "--";
+    [ObservableProperty] private string _b9 = "--";
+    [ObservableProperty] private string _bA = "--";
+    [ObservableProperty] private string _bB = "--";
+    [ObservableProperty] private string _bC = "--";
+    [ObservableProperty] private string _bD = "--";
+    [ObservableProperty] private string _bE = "--";
+    [ObservableProperty] private string _bF = "--";
+    [ObservableProperty] private string _ascii = "................";
 }
 
 public partial class Cdp1802ViewModel : ObservableObject
@@ -57,7 +53,9 @@ public partial class Cdp1802ViewModel : ObservableObject
     private readonly Dictionary<string, string> _previousValues = new();
     private bool _running;
     private CancellationTokenSource? _runCts;
-    private System.Threading.Timer? _changeClearTimer;
+    private long _lastChangeHighlightTick;
+    private long _lastUiRefreshTick;
+    private bool _refreshPending;
 
     private static readonly string[] RegisterNames =
         ["R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "RA", "RB", "RC", "RD", "RE", "RF"];
@@ -127,6 +125,12 @@ public partial class Cdp1802ViewModel : ObservableObject
         for (int i = 0; i < 16; i++)
             GeneralRegisters.Add(new RegisterItem { Name = RegisterNames[i], Value = "0000" });
 
+        for (int i = 0; i < 16; i++)
+            MemoryRows.Add(new MemoryRow());
+
+        for (int i = 0; i < 24; i++)
+            DisassemblyLines.Add(new DisassemblyLine());
+
         AssemblerSource = Core.ExamplePrograms.Find("hello")?.Source ?? "";
         MemoryAddress = "1000";
         RefreshAll();
@@ -142,6 +146,7 @@ public partial class Cdp1802ViewModel : ObservableObject
         RefreshMemory();
         RefreshPeripherals();
         RefreshTraceLog();
+        MaybeAutoClearChangeHighlights();
     }
 
     private void RefreshRegisters()
@@ -197,11 +202,7 @@ public partial class Cdp1802ViewModel : ObservableObject
 
     private void ScheduleChangeClear()
     {
-        _changeClearTimer?.Dispose();
-        _changeClearTimer = new System.Threading.Timer(_ =>
-        {
-            Avalonia.Threading.Dispatcher.UIThread.Post(ClearChangeHighlights);
-        }, null, 450, System.Threading.Timeout.Infinite);
+        _lastChangeHighlightTick = Environment.TickCount64;
     }
 
     private void ClearChangeHighlights()
@@ -219,9 +220,14 @@ public partial class Cdp1802ViewModel : ObservableObject
             reg.IsChanged = false;
     }
 
+    private void MaybeAutoClearChangeHighlights()
+    {
+        if (Environment.TickCount64 - _lastChangeHighlightTick >= 450)
+            ClearChangeHighlights();
+    }
+
     public void RefreshDisassembly()
     {
-        DisassemblyLines.Clear();
         ushort pc = _cpu.R[_cpu.P];
 
         for (int i = 0; i < 24; i++)
@@ -229,15 +235,13 @@ public partial class Cdp1802ViewModel : ObservableObject
             var (mnemonic, length) = InstructionTiming.Disassemble(_cpu.Memory, pc);
             SplitMnemonic(mnemonic, out var opcode, out var operand);
 
-            DisassemblyLines.Add(new DisassemblyLine
-            {
-                Marker = i == 0 ? "►" : " ",
-                Address = $"{pc:X4}:",
-                Opcode = opcode,
-                Operand = operand,
-                IsCurrent = i == 0,
-                HasBreakpoint = _debugger.HasBreakpoint(pc)
-            });
+            var line = DisassemblyLines[i];
+            line.Marker = i == 0 ? "►" : " ";
+            line.Address = $"{pc:X4}:";
+            line.Opcode = opcode;
+            line.Operand = operand;
+            line.IsCurrent = i == 0;
+            line.HasBreakpoint = _debugger.HasBreakpoint(pc);
 
             pc += (ushort)length;
         }
@@ -261,15 +265,11 @@ public partial class Cdp1802ViewModel : ObservableObject
     {
         ushort addr = Convert.ToUInt16(MemoryAddress, 16);
 
-        MemoryRows.Clear();
-
         for (int i = 0; i < 16; i++)
         {
             ushort lineAddr = (ushort)(addr + i * 16);
-            var row = new MemoryRow
-            {
-                Address = $"{lineAddr:X4}"
-            };
+            var row = MemoryRows[i];
+            row.Address = $"{lineAddr:X4}";
 
             byte[] bytes = new byte[16];
             for (int j = 0; j < 16; j++)
@@ -300,8 +300,6 @@ public partial class Cdp1802ViewModel : ObservableObject
                 ascii.Append(b >= 0x20 && b < 0x7F ? (char)b : '.');
             }
             row.Ascii = ascii.ToString();
-
-            MemoryRows.Add(row);
         }
     }
 
@@ -368,6 +366,7 @@ public partial class Cdp1802ViewModel : ObservableObject
     {
         try
         {
+            _lastUiRefreshTick = Environment.TickCount64;
             while (!token.IsCancellationRequested)
             {
                 for (int i = 0; i < 1000; i++)
@@ -398,7 +397,18 @@ public partial class Cdp1802ViewModel : ObservableObject
                     }
                 }
 
-                Avalonia.Threading.Dispatcher.UIThread.Post(RefreshAll);
+                // Throttle UI updates to ~30 Hz and coalesce multiple refresh requests
+                long now = Environment.TickCount64;
+                if (!_refreshPending && now - _lastUiRefreshTick >= 33)
+                {
+                    _refreshPending = true;
+                    _lastUiRefreshTick = now;
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        RefreshAll();
+                        _refreshPending = false;
+                    });
+                }
             }
         }
         catch (OperationCanceledException)
@@ -417,6 +427,7 @@ public partial class Cdp1802ViewModel : ObservableObject
         _runCts?.Cancel();
         _runCts?.Dispose();
         _runCts = null;
+        _lastChangeHighlightTick = 0;
         StatusMessage = "Stopped";
     }
 
