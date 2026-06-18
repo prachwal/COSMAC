@@ -1,260 +1,372 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Cdp1802.Gui.ViewModels"
+        xmlns:models="using:Cdp1802.Gui.Models"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="860"
         x:Class="Cdp1802.Gui.Views.MainWindow"
         x:DataType="vm:Cdp1802ViewModel"
         Title="RCA CDP1802 (COSMAC) Emulator"
-        Width="1200" Height="800"
-        WindowStartupLocation="CenterScreen">
+        Width="1280" Height="860"
+        MinWidth="960" MinHeight="640"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BackgroundPrimaryBrush}">
 
     <Design.DataContext>
         <vm:Cdp1802ViewModel/>
     </Design.DataContext>
 
+    <Window.KeyBindings>
+        <KeyBinding Gesture="F7" Command="{Binding StepCommand}"/>
+        <KeyBinding Gesture="F5" Command="{Binding RunCommand}"/>
+        <KeyBinding Gesture="F9" Command="{Binding ResetCommand}"/>
+    </Window.KeyBindings>
+
     <DockPanel>
-        <!-- Menu Bar -->
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
-                <MenuItem Header="_Load Binary..." Command="{Binding LoadFileCommand}"/>
+                <MenuItem Header="_Load Binary..." Click="OnLoadFile"/>
                 <Separator/>
                 <MenuItem Header="E_xit" Click="OnExit"/>
             </MenuItem>
             <MenuItem Header="_Emulation">
                 <MenuItem Header="_Step (F7)" Command="{Binding StepCommand}"/>
-                <MenuItem Header="_Run (F5)" Command="{Binding RunCommand}"/>
-                <MenuItem Header="_Reset" Command="{Binding ResetCommand}"/>
+                <MenuItem Header="_Run / Stop (F5)" Command="{Binding RunCommand}"/>
+                <MenuItem Header="_Reset (F9)" Command="{Binding ResetCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_View">
+                <MenuItem Header="_Trace Log" Command="{Binding ToggleTraceCommand}"/>
             </MenuItem>
             <MenuItem Header="_Help">
                 <MenuItem Header="_About" Click="OnAbout"/>
             </MenuItem>
         </Menu>
 
-        <!-- Toolbar -->
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4">
-            <Button Content="▶ Step" Command="{Binding StepCommand}" Width="80" Margin="2"/>
-            <Button Content="⏵ Run" Command="{Binding RunCommand}" Width="80" Margin="2"/>
-            <Button Content="⏹ Reset" Command="{Binding ResetCommand}" Width="80" Margin="2"/>
-            <Separator Width="20"/>
-            <TextBlock Text="Breakpoint:" VerticalAlignment="Center" Margin="4,0"/>
-            <TextBox Text="{Binding BreakpointAddress}" Width="80" Margin="2"/>
-            <Button Content="Set" Command="{Binding ToggleBreakpointCommand}" Width="50" Margin="2"/>
-            <Separator Width="20"/>
-            <TextBlock Text="Memory @:" VerticalAlignment="Center" Margin="4,0"/>
-            <TextBox Text="{Binding MemoryAddress}" Width="80" Margin="2"/>
-            <Button Content="Go" Command="{Binding UpdateMemoryAddressCommand}" Width="50" Margin="2"/>
-        </StackPanel>
-
-        <!-- Status Bar -->
-        <Border DockPanel.Dock="Bottom" Background="#2D2D30" Padding="8,4">
-            <DockPanel>
-                <TextBlock Text="{Binding StatusMessage}" Foreground="#CCCCCC" DockPanel.Dock="Left"/>
-                <TextBlock Text="{Binding TotalCycles}" Foreground="#CCCCCC" DockPanel.Dock="Right" HorizontalAlignment="Right"/>
-                <TextBlock Text="Cycles: " Foreground="#888888" DockPanel.Dock="Right"/>
-            </DockPanel>
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource BackgroundPanelBrush}"
+                BorderBrush="{StaticResource BorderSubtleBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="8,6">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <Button Classes="cosmac-toolbar" Content="▶ Step" Command="{Binding StepCommand}" ToolTip.Tip="Execute one instruction (F7)"/>
+                <Button Classes="cosmac-toolbar"
+                        Classes.run="{Binding !IsRunning}"
+                        Classes.stop="{Binding IsRunning}"
+                        Command="{Binding RunCommand}"
+                        ToolTip.Tip="Run / Stop emulation (F5)">
+                    <Panel>
+                        <TextBlock Text="⏵ Run" IsVisible="{Binding !IsRunning}"/>
+                        <TextBlock Text="⏹ Stop" IsVisible="{Binding IsRunning}"/>
+                    </Panel>
+                </Button>
+                <Button Classes="cosmac-toolbar" Content="↺ Reset" Command="{Binding ResetCommand}" ToolTip.Tip="Reset CPU (F9)"/>
+            </StackPanel>
         </Border>
 
-        <!-- Main Content -->
-        <Grid ColumnDefinitions="*,*" RowDefinitions="*,*">
+        <Border DockPanel.Dock="Bottom"
+                Background="{StaticResource StatusBarBrush}"
+                BorderBrush="{StaticResource BorderSubtleBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="12,6">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+                <TextBlock Grid.Column="0"
+                           Text="{Binding StatusMessage}"
+                           Foreground="{StaticResource TextPrimaryBrush}"
+                           VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="16,0">
+                    <TextBlock Text="State:" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding MachineState}"
+                               Foreground="{StaticResource AccentSecondaryBrush}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="16,0">
+                    <TextBlock Text="PC:" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding PcHex}"
+                               Foreground="{StaticResource HighlightPcTextBrush}"
+                               FontFamily="{StaticResource MonoFont}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" Margin="16,0,0,0">
+                    <TextBlock Text="Cycles:" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding TotalCycles}"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontFamily="{StaticResource MonoFont}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+        </Border>
 
-            <!-- Top Left: Registers -->
-            <Border Grid.Row="0" Grid.Column="0" Margin="4" BorderBrush="#3F3F46" BorderThickness="1" Padding="4">
+        <Grid Margin="2"
+              ColumnDefinitions="248,4,*"
+              RowDefinitions="*,4,168,Auto">
+
+            <Border Grid.Row="0" Grid.Column="0" Classes="cosmac-panel">
                 <DockPanel>
-                    <TextBlock Text="Registers" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,4" Foreground="#569CD6"/>
-                    <ScrollViewer>
-                        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto">
-                            <!-- Row 0: Control registers -->
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="D:" Width="30"/>
-                                <TextBlock Text="{Binding RegD}" Width="30" FontWeight="Bold"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="DF:" Width="30"/>
-                                <TextBlock Text="{Binding RegDF}" Width="20"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="P:" Width="30"/>
-                                <TextBlock Text="{Binding RegP}" Width="20"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="X:" Width="30"/>
-                                <TextBlock Text="{Binding RegX}" Width="20"/>
-                            </StackPanel>
+                    <TextBlock Text="Registers" Classes="section-header" DockPanel.Dock="Top"/>
 
-                            <!-- Row 1 -->
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="T:" Width="30"/>
-                                <TextBlock Text="{Binding RegT}" Width="30"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="Q:" Width="30"/>
-                                <TextBlock Text="{Binding RegQ}" Width="20"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="IE:" Width="30"/>
-                                <TextBlock Text="{Binding RegIE}" Width="20"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="PC:" Width="30"/>
-                                <TextBlock Text="{Binding PcHex}" Width="40" FontWeight="Bold"/>
-                            </StackPanel>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Control" Foreground="{StaticResource TextMutedBrush}" FontSize="11"/>
 
-                            <!-- R0-R3 -->
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="R0:" Width="30"/>
-                                <TextBlock Text="{Binding R0}" Width="50" FontWeight="Bold"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="R1:" Width="30"/>
-                                <TextBlock Text="{Binding R1}" Width="50"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="R2:" Width="30"/>
-                                <TextBlock Text="{Binding R2}" Width="50"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="R3:" Width="30"/>
-                                <TextBlock Text="{Binding R3}" Width="50"/>
-                            </StackPanel>
+                            <UniformGrid Columns="2" Rows="4">
+                                <Border Classes="reg-cell" Classes.changed="{Binding RegDChanged}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="D" Classes="reg-label" Width="24"/>
+                                        <TextBlock Text="{Binding RegD}" Classes="reg-value"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Classes="reg-cell" Classes.changed="{Binding RegDFChanged}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="DF" Classes="reg-label" Width="24"/>
+                                        <TextBlock Text="{Binding RegDF}" Classes="reg-value"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Classes="reg-cell" Classes.changed="{Binding RegPChanged}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="P" Classes="reg-label" Width="24"/>
+                                        <TextBlock Text="{Binding RegP}" Classes="reg-value"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Classes="reg-cell" Classes.changed="{Binding RegXChanged}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="X" Classes="reg-label" Width="24"/>
+                                        <TextBlock Text="{Binding RegX}" Classes="reg-value"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Classes="reg-cell" Classes.changed="{Binding RegTChanged}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="T" Classes="reg-label" Width="24"/>
+                                        <TextBlock Text="{Binding RegT}" Classes="reg-value"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Classes="reg-cell" Classes.changed="{Binding RegQChanged}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="Q" Classes="reg-label" Width="24"/>
+                                        <TextBlock Text="{Binding RegQ}" Classes="reg-value"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Classes="reg-cell" Classes.changed="{Binding RegIEChanged}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="IE" Classes="reg-label" Width="24"/>
+                                        <TextBlock Text="{Binding RegIE}" Classes="reg-value"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Classes="reg-cell">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="PC" Classes="reg-label" Width="24"/>
+                                        <TextBlock Text="{Binding PcHex}" Classes="reg-value" Foreground="{StaticResource HighlightPcTextBrush}"/>
+                                    </StackPanel>
+                                </Border>
+                            </UniformGrid>
 
-                            <!-- R4-R7 -->
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="R4:" Width="30"/>
-                                <TextBlock Text="{Binding R4}" Width="50"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="R5:" Width="30"/>
-                                <TextBlock Text="{Binding R5}" Width="50"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="R6:" Width="30"/>
-                                <TextBlock Text="{Binding R6}" Width="50"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="R7:" Width="30"/>
-                                <TextBlock Text="{Binding R7}" Width="50"/>
-                            </StackPanel>
+                            <TextBlock Text="General (R0–RF)" Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="0,4,0,0"/>
 
-                            <!-- R8-RB -->
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="R8:" Width="30"/>
-                                <TextBlock Text="{Binding R8}" Width="50"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="R9:" Width="30"/>
-                                <TextBlock Text="{Binding R9}" Width="50"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="RA:" Width="30"/>
-                                <TextBlock Text="{Binding RA}" Width="50"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="RB:" Width="30"/>
-                                <TextBlock Text="{Binding RB}" Width="50"/>
-                            </StackPanel>
+                            <ItemsControl ItemsSource="{Binding GeneralRegisters}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Columns="2"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="models:RegisterItem">
+                                        <Border Classes="reg-cell"
+                                                Classes.active="{Binding IsActive}"
+                                                Classes.changed="{Binding IsChanged}">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Text="{Binding Name}" Classes="reg-label" Width="28"/>
+                                                <TextBlock Text="{Binding Value}" Classes="reg-value"/>
+                                                <TextBlock Text="P"
+                                                           FontSize="10"
+                                                           Foreground="{StaticResource HighlightPcTextBrush}"
+                                                           IsVisible="{Binding IsProgramCounter}"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Text="X"
+                                                           FontSize="10"
+                                                           Foreground="{StaticResource AccentPrimaryBrush}"
+                                                           IsVisible="{Binding IsDataPointer}"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
 
-                            <!-- RC-RF -->
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="RC:" Width="30"/>
-                                <TextBlock Text="{Binding RC}" Width="50"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="RD:" Width="30"/>
-                                <TextBlock Text="{Binding RD}" Width="50"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="RE:" Width="30"/>
-                                <TextBlock Text="{Binding RE}" Width="50"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="RF:" Width="30"/>
-                                <TextBlock Text="{Binding RF}" Width="50"/>
-                            </StackPanel>
-
-                            <!-- State -->
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,8,0,2" Grid.ColumnSpan="2">
-                                <TextBlock Text="State:" Width="50"/>
-                                <TextBlock Text="{Binding MachineState}" Width="100" FontWeight="Bold" Foreground="#4EC9B0"/>
-                            </StackPanel>
-                        </Grid>
+                            <Border Classes="reg-cell" Classes.changed="{Binding MachineStateChanged}" Margin="0,4,0,0">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="State" Classes="reg-label"/>
+                                    <TextBlock Text="{Binding MachineState}"
+                                               Classes="reg-value"
+                                               Foreground="{StaticResource AccentSecondaryBrush}"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
                     </ScrollViewer>
                 </DockPanel>
             </Border>
 
-            <!-- Top Right: Disassembly -->
-            <Border Grid.Row="0" Grid.Column="1" Margin="4" BorderBrush="#3F3F46" BorderThickness="1" Padding="4">
-                <DockPanel>
-                    <TextBlock Text="Disassembly" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,4" Foreground="#569CD6"/>
-                    <TextBox Text="{Binding Disassembly}"
-                             IsReadOnly="True"
-                             FontFamily="Consolas,Monospace"
-                             FontSize="13"
-                             Background="#1E1E1E"
-                             Foreground="#D4D4D4"/>
-                </DockPanel>
-            </Border>
+            <GridSplitter Grid.Row="0" Grid.Column="1" Grid.RowSpan="3"
+                          Width="4"
+                          ResizeDirection="Columns"
+                          Background="{StaticResource BorderSubtleBrush}"/>
 
-            <!-- Bottom Left: Memory Dump -->
-            <Border Grid.Row="1" Grid.Column="0" Margin="4" BorderBrush="#3F3F46" BorderThickness="1" Padding="4">
+            <Border Grid.Row="0" Grid.Column="2" Classes="cosmac-panel">
                 <DockPanel>
-                    <TextBlock Text="Memory" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,4" Foreground="#569CD6"/>
-                    <TextBox Text="{Binding MemoryDump}"
-                             IsReadOnly="True"
-                             FontFamily="Consolas,Monospace"
-                             FontSize="13"
-                             Background="#1E1E1E"
-                             Foreground="#D4D4D4"/>
-                </DockPanel>
-            </Border>
-
-            <!-- Bottom Right: Peripherals & Trace -->
-            <Grid Grid.Row="1" Grid.Column="1" Margin="4" RowDefinitions="*,*">
-                <!-- Peripherals -->
-                <Border Grid.Row="0" Margin="0,0,0,4" BorderBrush="#3F3F46" BorderThickness="1" Padding="4">
-                    <DockPanel>
-                        <TextBlock Text="Peripherals" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,4" Foreground="#569CD6"/>
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="UART: " Width="50" Foreground="#888888"/>
-                                <TextBlock Text="{Binding UartStatus}" Foreground="#CCCCCC"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="Timer:" Width="50" Foreground="#888888"/>
-                                <TextBlock Text="{Binding TimerStatus}" Foreground="#CCCCCC"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="GPIO: " Width="50" Foreground="#888888"/>
-                                <TextBlock Text="{Binding GpioStatus}" Foreground="#CCCCCC"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="Pixie:" Width="50" Foreground="#888888"/>
-                                <TextBlock Text="{Binding PixieStatus}" Foreground="#CCCCCC"/>
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,2">
-                                <TextBlock Text="Keyb: " Width="50" Foreground="#888888"/>
-                                <TextBlock Text="{Binding KeyboardStatus}" Foreground="#CCCCCC"/>
-                            </StackPanel>
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                        <TextBlock Grid.Column="0" Text="Disassembly" Classes="section-header" Margin="0"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="BP @" VerticalAlignment="Center" Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBox Classes="cosmac-input"
+                                     Text="{Binding BreakpointAddress}"
+                                     PlaceholderText="0000"
+                                     Width="72"/>
+                            <Button Content="Set"
+                                    Command="{Binding ToggleBreakpointCommand}"
+                                    Padding="8,4"
+                                    VerticalAlignment="Center"/>
                         </StackPanel>
-                    </DockPanel>
-                </Border>
+                    </Grid>
 
-                <!-- Trace Log -->
-                <Border Grid.Row="1" BorderBrush="#3F3F46" BorderThickness="1" Padding="4">
-                    <DockPanel>
-                        <TextBlock Text="Trace Log" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,4" Foreground="#569CD6"/>
-                        <TextBox Text="{Binding TraceLog}"
-                                 IsReadOnly="True"
-                                 FontFamily="Consolas,Monospace"
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Background="{StaticResource BackgroundEditorBrush}">
+                        <ItemsControl ItemsSource="{Binding DisassemblyLines}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:DisassemblyLine">
+                                    <Border Classes="disasm-line" Classes.current="{Binding IsCurrent}">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <TextBlock Text="{Binding Marker}"
+                                                       Width="14"
+                                                       FontFamily="{StaticResource MonoFont}"
+                                                       Foreground="{StaticResource AccentSecondaryBrush}"/>
+                                            <TextBlock Text="●"
+                                                       Foreground="{StaticResource BreakpointBrush}"
+                                                       IsVisible="{Binding HasBreakpoint}"
+                                                       FontSize="10"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding Address}"
+                                                       FontFamily="{StaticResource MonoFont}"
+                                                       Foreground="{StaticResource SyntaxAddressBrush}"/>
+                                            <TextBlock Text="{Binding Opcode}"
+                                                       FontFamily="{StaticResource MonoFont}"
+                                                       Foreground="{StaticResource SyntaxOpcodeBrush}"
+                                                       FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding Operand}"
+                                                       FontFamily="{StaticResource MonoFont}"
+                                                       Foreground="{StaticResource SyntaxOperandBrush}"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <GridSplitter Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
+                          Height="4"
+                          ResizeDirection="Rows"
+                          Background="{StaticResource BorderSubtleBrush}"/>
+
+            <Border Grid.Row="2" Grid.Column="0" Classes="cosmac-panel">
+                <DockPanel>
+                    <TextBlock Text="Peripherals" Classes="section-header" DockPanel.Dock="Top"/>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <UniformGrid Columns="1" Rows="5">
+                            <Border Classes="peripheral-badge">
+                                <StackPanel>
+                                    <TextBlock Text="UART" Classes="peripheral-label"/>
+                                    <TextBlock Text="{Binding UartStatus}" Classes="peripheral-value"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Classes="peripheral-badge">
+                                <StackPanel>
+                                    <TextBlock Text="Timer" Classes="peripheral-label"/>
+                                    <TextBlock Text="{Binding TimerStatus}" Classes="peripheral-value"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Classes="peripheral-badge">
+                                <StackPanel>
+                                    <TextBlock Text="GPIO" Classes="peripheral-label"/>
+                                    <TextBlock Text="{Binding GpioStatus}" Classes="peripheral-value"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Classes="peripheral-badge">
+                                <StackPanel>
+                                    <TextBlock Text="Pixie" Classes="peripheral-label"/>
+                                    <TextBlock Text="{Binding PixieStatus}" Classes="peripheral-value"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Classes="peripheral-badge">
+                                <StackPanel>
+                                    <TextBlock Text="Keyboard" Classes="peripheral-label"/>
+                                    <TextBlock Text="{Binding KeyboardStatus}" Classes="peripheral-value"/>
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <Border Grid.Row="2" Grid.Column="2" Classes="cosmac-panel">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                        <TextBlock Grid.Column="0" Text="Memory" Classes="section-header" Margin="0"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="@" VerticalAlignment="Center" Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBox Classes="cosmac-input"
+                                     Text="{Binding MemoryAddress}"
+                                     PlaceholderText="0000"
+                                     Width="72"/>
+                            <Button Content="Go"
+                                    Command="{Binding UpdateMemoryAddressCommand}"
+                                    Padding="8,4"/>
+                        </StackPanel>
+                    </Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  Background="{StaticResource BackgroundEditorBrush}">
+                        <TextBox Classes="cosmac-editor"
+                                 Text="{Binding MemoryDump}"
+                                 IsReadOnly="True"/>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <Border Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3"
+                    Classes="cosmac-panel"
+                    Margin="6,0,6,6"
+                    Padding="8,6">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0"
+                                   Text="Trace Log"
+                                   Classes="section-header"
+                                   Margin="0"/>
+                        <Button Grid.Column="1"
+                                Command="{Binding ToggleTraceCommand}"
+                                Padding="8,2"
+                                VerticalAlignment="Center">
+                            <Panel>
+                                <TextBlock Text="▼ Expand" IsVisible="{Binding !IsTraceExpanded}"/>
+                                <TextBlock Text="▲ Collapse" IsVisible="{Binding IsTraceExpanded}"/>
+                            </Panel>
+                        </Button>
+                    </Grid>
+                    <ScrollViewer IsVisible="{Binding IsTraceExpanded}"
+                                  MaxHeight="140"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Background="{StaticResource BackgroundEditorBrush}">
+                        <TextBox Classes="cosmac-editor"
                                  FontSize="11"
-                                 Background="#1E1E1E"
-                                 Foreground="#888888"
-                                 MaxHeight="200"/>
-                    </DockPanel>
-                </Border>
-            </Grid>
-
+                                 Foreground="{StaticResource TextMutedBrush}"
+                                 Text="{Binding TraceLog}"
+                                 IsReadOnly="True"/>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
         </Grid>
     </DockPanel>
 </Window>

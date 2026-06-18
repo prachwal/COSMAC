@@ -1,0 +1,164 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Styles.Resources>
+    <Color x:Key="BackgroundPrimaryColor">#0D1117</Color>
+    <Color x:Key="BackgroundPanelColor">#161B22</Color>
+    <Color x:Key="BackgroundEditorColor">#0A0E14</Color>
+    <Color x:Key="BorderSubtleColor">#30363D</Color>
+    <Color x:Key="AccentPrimaryColor">#F0883E</Color>
+    <Color x:Key="AccentSecondaryColor">#3FB950</Color>
+    <Color x:Key="TextPrimaryColor">#E6EDF3</Color>
+    <Color x:Key="TextMutedColor">#8B949E</Color>
+    <Color x:Key="HighlightPcColor">#1F6FEB</Color>
+    <Color x:Key="HighlightPcTextColor">#58A6FF</Color>
+    <Color x:Key="HighlightRegColor">#238636</Color>
+    <Color x:Key="HighlightChangedColor">#9E6A03</Color>
+    <Color x:Key="SyntaxAddressColor">#8B949E</Color>
+    <Color x:Key="SyntaxOpcodeColor">#F0883E</Color>
+    <Color x:Key="SyntaxOperandColor">#79C0FF</Color>
+    <Color x:Key="BreakpointColor">#F85149</Color>
+    <Color x:Key="StatusBarColor">#010409</Color>
+
+    <SolidColorBrush x:Key="BackgroundPrimaryBrush" Color="{StaticResource BackgroundPrimaryColor}"/>
+    <SolidColorBrush x:Key="BackgroundPanelBrush" Color="{StaticResource BackgroundPanelColor}"/>
+    <SolidColorBrush x:Key="BackgroundEditorBrush" Color="{StaticResource BackgroundEditorColor}"/>
+    <SolidColorBrush x:Key="BorderSubtleBrush" Color="{StaticResource BorderSubtleColor}"/>
+    <SolidColorBrush x:Key="AccentPrimaryBrush" Color="{StaticResource AccentPrimaryColor}"/>
+    <SolidColorBrush x:Key="AccentSecondaryBrush" Color="{StaticResource AccentSecondaryColor}"/>
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}"/>
+    <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMutedColor}"/>
+    <SolidColorBrush x:Key="HighlightPcBrush" Color="{StaticResource HighlightPcColor}"/>
+    <SolidColorBrush x:Key="HighlightPcTextBrush" Color="{StaticResource HighlightPcTextColor}"/>
+    <SolidColorBrush x:Key="HighlightRegBrush" Color="{StaticResource HighlightRegColor}"/>
+    <SolidColorBrush x:Key="HighlightChangedBrush" Color="{StaticResource HighlightChangedColor}"/>
+    <SolidColorBrush x:Key="SyntaxAddressBrush" Color="{StaticResource SyntaxAddressColor}"/>
+    <SolidColorBrush x:Key="SyntaxOpcodeBrush" Color="{StaticResource SyntaxOpcodeColor}"/>
+    <SolidColorBrush x:Key="SyntaxOperandBrush" Color="{StaticResource SyntaxOperandColor}"/>
+    <SolidColorBrush x:Key="BreakpointBrush" Color="{StaticResource BreakpointColor}"/>
+    <SolidColorBrush x:Key="StatusBarBrush" Color="{StaticResource StatusBarColor}"/>
+
+    <FontFamily x:Key="MonoFont">Cascadia Mono, JetBrains Mono, Consolas, monospace</FontFamily>
+
+    <Thickness x:Key="PanelPadding">10,8</Thickness>
+    <Thickness x:Key="PanelMargin">6</Thickness>
+    <CornerRadius x:Key="PanelCornerRadius">6</CornerRadius>
+    </Styles.Resources>
+
+    <Style Selector="Window">
+        <Setter Property="Background" Value="{StaticResource BackgroundPrimaryBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+    </Style>
+
+    <Style Selector="Border.cosmac-panel">
+        <Setter Property="Background" Value="{StaticResource BackgroundPanelBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="{StaticResource PanelCornerRadius}"/>
+        <Setter Property="Padding" Value="{StaticResource PanelPadding}"/>
+        <Setter Property="Margin" Value="{StaticResource PanelMargin}"/>
+    </Style>
+
+    <Style Selector="TextBlock.section-header">
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Foreground" Value="{StaticResource AccentPrimaryBrush}"/>
+        <Setter Property="Margin" Value="0,0,0,8"/>
+    </Style>
+
+    <Style Selector="TextBlock.reg-label">
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+        <Setter Property="FontFamily" Value="{StaticResource MonoFont}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="Border.reg-cell">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="Padding" Value="6,4"/>
+        <Setter Property="Margin" Value="0,2"/>
+    </Style>
+
+    <Style Selector="Border.reg-cell.active">
+        <Setter Property="Background" Value="{StaticResource HighlightRegBrush}"/>
+    </Style>
+
+    <Style Selector="Border.reg-cell.changed">
+        <Setter Property="Background" Value="{StaticResource HighlightChangedBrush}"/>
+    </Style>
+
+    <Style Selector="Border.reg-cell.active.changed">
+        <Setter Property="Background" Value="{StaticResource HighlightChangedBrush}"/>
+    </Style>
+
+    <Style Selector="TextBlock.reg-value">
+        <Setter Property="FontFamily" Value="{StaticResource MonoFont}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <Style Selector="TextBox.cosmac-editor">
+        <Setter Property="FontFamily" Value="{StaticResource MonoFont}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Background" Value="{StaticResource BackgroundEditorBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="AcceptsReturn" Value="True"/>
+        <Setter Property="TextWrapping" Value="NoWrap"/>
+    </Style>
+
+    <Style Selector="TextBox.cosmac-input">
+        <Setter Property="FontFamily" Value="{StaticResource MonoFont}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="MinWidth" Value="72"/>
+        <Setter Property="Padding" Value="6,4"/>
+    </Style>
+
+    <Style Selector="Button.cosmac-toolbar">
+        <Setter Property="MinWidth" Value="88"/>
+        <Setter Property="Margin" Value="2,0"/>
+        <Setter Property="Padding" Value="10,6"/>
+    </Style>
+
+    <Style Selector="Button.cosmac-toolbar.run">
+        <Setter Property="Background" Value="{StaticResource HighlightRegBrush}"/>
+    </Style>
+
+    <Style Selector="Button.cosmac-toolbar.stop">
+        <Setter Property="Background" Value="{StaticResource BreakpointBrush}"/>
+    </Style>
+
+    <Style Selector="Border.disasm-line">
+        <Setter Property="Padding" Value="6,2"/>
+        <Setter Property="CornerRadius" Value="3"/>
+    </Style>
+
+    <Style Selector="Border.disasm-line.current">
+        <Setter Property="Background" Value="{StaticResource HighlightPcBrush}"/>
+    </Style>
+
+    <Style Selector="Border.peripheral-badge">
+        <Setter Property="Background" Value="{StaticResource BackgroundEditorBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource BorderSubtleBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="4"/>
+        <Setter Property="Padding" Value="8,6"/>
+        <Setter Property="Margin" Value="0,0,6,6"/>
+    </Style>
+
+    <Style Selector="TextBlock.peripheral-label">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+        <Setter Property="Margin" Value="0,0,0,2"/>
+    </Style>
+
+    <Style Selector="TextBlock.peripheral-value">
+        <Setter Property="FontFamily" Value="{StaticResource MonoFont}"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+    </Style>
+
+</Styles>

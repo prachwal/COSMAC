@@ -12,8 +12,6 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
-        // Wire up key bindings
-        KeyDown += OnKeyDown;
     }
 
     private async void OnLoadFile(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -37,25 +35,6 @@ public partial class MainWindow : Window
         if (files.Count > 0)
         {
             ViewModel.LoadFileFromPath(files[0].Path.LocalPath);
-        }
-    }
-
-    private void OnKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
-    {
-        switch (e.Key)
-        {
-            case Avalonia.Input.Key.F7:
-                ViewModel.StepCommand.Execute(null);
-                e.Handled = true;
-                break;
-            case Avalonia.Input.Key.F5:
-                ViewModel.RunCommand.Execute(null);
-                e.Handled = true;
-                break;
-            case Avalonia.Input.Key.F9:
-                ViewModel.ResetCommand.Execute(null);
-                e.Handled = true;
-                break;
         }
     }
 

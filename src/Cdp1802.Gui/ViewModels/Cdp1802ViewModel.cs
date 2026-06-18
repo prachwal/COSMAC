@@ -1,21 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Text;
-using Avalonia.Controls;
-using Avalonia.Input;
-using Avalonia.Platform.Storage;
 using Cdp1802.Core;
+using Cdp1802.Gui.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
 namespace Cdp1802.Gui.ViewModels;
 
-/// <summary>
-/// Main ViewModel for CDP1802 GUI.
-/// Binds processor state to UI with MVVM pattern.
-/// </summary>
 public partial class Cdp1802ViewModel : ObservableObject
 {
     private readonly Core.Cdp1802 _cpu;
@@ -27,10 +20,14 @@ public partial class Cdp1802ViewModel : ObservableObject
     private readonly Cdp1861 _pixie;
     private readonly Cdp1851 _keyboard;
     private readonly FastInterpreter _fastInterpreter;
+    private readonly Dictionary<string, string> _previousValues = new();
     private bool _running;
     private System.Threading.Timer? _runTimer;
+    private System.Threading.Timer? _changeClearTimer;
 
-    // Register properties
+    private static readonly string[] RegisterNames =
+        ["R0", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "RA", "RB", "RC", "RD", "RE", "RF"];
+
     [ObservableProperty] private string _regD = "00";
     [ObservableProperty] private string _regDF = "0";
     [ObservableProperty] private string _regP = "0";
@@ -38,55 +35,35 @@ public partial class Cdp1802ViewModel : ObservableObject
     [ObservableProperty] private string _regT = "00";
     [ObservableProperty] private string _regQ = "0";
     [ObservableProperty] private string _regIE = "1";
+    [ObservableProperty] private bool _regDChanged;
+    [ObservableProperty] private bool _regDFChanged;
+    [ObservableProperty] private bool _regPChanged;
+    [ObservableProperty] private bool _regXChanged;
+    [ObservableProperty] private bool _regTChanged;
+    [ObservableProperty] private bool _regQChanged;
+    [ObservableProperty] private bool _regIEChanged;
 
-    // R registers
-    [ObservableProperty] private string _r0 = "0000";
-    [ObservableProperty] private string _r1 = "0000";
-    [ObservableProperty] private string _r2 = "0000";
-    [ObservableProperty] private string _r3 = "0000";
-    [ObservableProperty] private string _r4 = "0000";
-    [ObservableProperty] private string _r5 = "0000";
-    [ObservableProperty] private string _r6 = "0000";
-    [ObservableProperty] private string _r7 = "0000";
-    [ObservableProperty] private string _r8 = "0000";
-    [ObservableProperty] private string _r9 = "0000";
-    [ObservableProperty] private string _rA = "0000";
-    [ObservableProperty] private string _rB = "0000";
-    [ObservableProperty] private string _rC = "0000";
-    [ObservableProperty] private string _rD = "0000";
-    [ObservableProperty] private string _rE = "0000";
-    [ObservableProperty] private string _rF = "0000";
-
-    // State
     [ObservableProperty] private string _machineState = "S0_Fetch";
     [ObservableProperty] private string _totalCycles = "0";
     [ObservableProperty] private string _pcHex = "0000";
+    [ObservableProperty] private bool _machineStateChanged;
 
-    // Disassembly
-    [ObservableProperty] private string _disassembly = "";
-
-    // Memory dump
     [ObservableProperty] private string _memoryDump = "";
-
-    // Peripheral status
     [ObservableProperty] private string _uartStatus = "";
     [ObservableProperty] private string _timerStatus = "";
     [ObservableProperty] private string _gpioStatus = "";
     [ObservableProperty] private string _pixieStatus = "";
     [ObservableProperty] private string _keyboardStatus = "";
 
-    // Control
     [ObservableProperty] private bool _isRunning;
     [ObservableProperty] private string _statusMessage = "Ready";
-
-    // Breakpoints
     [ObservableProperty] private string _breakpointAddress = "";
-
-    // Memory view
     [ObservableProperty] private string _memoryAddress = "0000";
-
-    // Trace log
     [ObservableProperty] private string _traceLog = "";
+    [ObservableProperty] private bool _isTraceExpanded;
+
+    public ObservableCollection<RegisterItem> GeneralRegisters { get; } = new();
+    public ObservableCollection<DisassemblyLine> DisassemblyLines { get; } = new();
 
     public Cdp1802ViewModel()
     {
@@ -108,74 +85,137 @@ public partial class Cdp1802ViewModel : ObservableObject
         _fastInterpreter = new FastInterpreter(_cpu);
         _debugger.SetTrace(true);
 
+        for (int i = 0; i < 16; i++)
+            GeneralRegisters.Add(new RegisterItem { Name = RegisterNames[i], Value = "0000" });
+
         RefreshAll();
     }
 
     public Core.Cdp1802 Cpu => _cpu;
     public Debugger Dbg => _debugger;
 
-    /// <summary>
-    /// Refresh all UI bindings.
-    /// </summary>
     public void RefreshAll()
     {
-        RegD = _cpu.D.ToString("X2");
-        RegDF = _cpu.DF ? "1" : "0";
-        RegP = _cpu.P.ToString("X");
-        RegX = _cpu.X.ToString("X");
-        RegT = _cpu.T.ToString("X2");
-        RegQ = _cpu.Q ? "1" : "0";
-        RegIE = _cpu.IE ? "1" : "0";
-
-        R0 = _cpu.R[0].ToString("X4");
-        R1 = _cpu.R[1].ToString("X4");
-        R2 = _cpu.R[2].ToString("X4");
-        R3 = _cpu.R[3].ToString("X4");
-        R4 = _cpu.R[4].ToString("X4");
-        R5 = _cpu.R[5].ToString("X4");
-        R6 = _cpu.R[6].ToString("X4");
-        R7 = _cpu.R[7].ToString("X4");
-        R8 = _cpu.R[8].ToString("X4");
-        R9 = _cpu.R[9].ToString("X4");
-        RA = _cpu.R[0xA].ToString("X4");
-        RB = _cpu.R[0xB].ToString("X4");
-        RC = _cpu.R[0xC].ToString("X4");
-        RD = _cpu.R[0xD].ToString("X4");
-        RE = _cpu.R[0xE].ToString("X4");
-        RF = _cpu.R[0xF].ToString("X4");
-
-        MachineState = _cpu.State.ToString();
-        TotalCycles = _cpu.TotalCycles.ToString();
-        PcHex = _cpu.R[_cpu.P].ToString("X4");
-
+        RefreshRegisters();
         RefreshDisassembly();
         RefreshMemory();
         RefreshPeripherals();
         RefreshTraceLog();
     }
 
-    /// <summary>
-    /// Refresh disassembly at PC.
-    /// </summary>
-    public void RefreshDisassembly()
+    private void RefreshRegisters()
     {
-        var sb = new StringBuilder();
-        ushort pc = _cpu.R[_cpu.P];
+        UpdateScalar("D", _cpu.D.ToString("X2"), v => RegD = v, c => RegDChanged = c);
+        UpdateScalar("DF", _cpu.DF ? "1" : "0", v => RegDF = v, c => RegDFChanged = c);
+        UpdateScalar("P", _cpu.P.ToString("X"), v => RegP = v, c => RegPChanged = c);
+        UpdateScalar("X", _cpu.X.ToString("X"), v => RegX = v, c => RegXChanged = c);
+        UpdateScalar("T", _cpu.T.ToString("X2"), v => RegT = v, c => RegTChanged = c);
+        UpdateScalar("Q", _cpu.Q ? "1" : "0", v => RegQ = v, c => RegQChanged = c);
+        UpdateScalar("IE", _cpu.IE ? "1" : "0", v => RegIE = v, c => RegIEChanged = c);
 
-        for (int i = 0; i < 20; i++)
+        int p = _cpu.P;
+        int x = _cpu.X;
+
+        for (int i = 0; i < 16; i++)
         {
-            var (mnemonic, length) = InstructionTiming.Disassemble(_cpu.Memory, pc);
-            string marker = i == 0 ? "► " : "  ";
-            sb.AppendLine($"{marker}{pc:X4}: {mnemonic}");
-            pc += (ushort)length;
+            string key = RegisterNames[i];
+            string value = _cpu.R[i].ToString("X4");
+            var item = GeneralRegisters[i];
+            bool changed = _previousValues.TryGetValue(key, out var prev) && prev != value;
+            item.Value = value;
+            item.IsProgramCounter = i == p;
+            item.IsDataPointer = i == x;
+            item.IsHighlighted = item.IsProgramCounter || item.IsDataPointer;
+            item.IsChanged = changed;
+            _previousValues[key] = value;
         }
 
-        Disassembly = sb.ToString();
+        string state = _cpu.State.ToString();
+        bool stateChanged = _previousValues.TryGetValue("State", out var prevState) && prevState != state;
+        MachineState = state;
+        MachineStateChanged = stateChanged;
+        _previousValues["State"] = state;
+
+        string cycles = _cpu.TotalCycles.ToString();
+        TotalCycles = cycles;
+        PcHex = _cpu.R[p].ToString("X4");
+
+        if (stateChanged || GeneralRegisters.AnyChanged())
+            ScheduleChangeClear();
     }
 
-    /// <summary>
-    /// Refresh memory dump.
-    /// </summary>
+    private void UpdateScalar(string key, string value, Action<string> setter, Action<bool> changedSetter)
+    {
+        bool changed = _previousValues.TryGetValue(key, out var prev) && prev != value;
+        setter(value);
+        changedSetter(changed);
+        _previousValues[key] = value;
+        if (changed)
+            ScheduleChangeClear();
+    }
+
+    private void ScheduleChangeClear()
+    {
+        _changeClearTimer?.Dispose();
+        _changeClearTimer = new System.Threading.Timer(_ =>
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(ClearChangeHighlights);
+        }, null, 450, System.Threading.Timeout.Infinite);
+    }
+
+    private void ClearChangeHighlights()
+    {
+        RegDChanged = false;
+        RegDFChanged = false;
+        RegPChanged = false;
+        RegXChanged = false;
+        RegTChanged = false;
+        RegQChanged = false;
+        RegIEChanged = false;
+        MachineStateChanged = false;
+
+        foreach (var reg in GeneralRegisters)
+            reg.IsChanged = false;
+    }
+
+    public void RefreshDisassembly()
+    {
+        DisassemblyLines.Clear();
+        ushort pc = _cpu.R[_cpu.P];
+
+        for (int i = 0; i < 24; i++)
+        {
+            var (mnemonic, length) = InstructionTiming.Disassemble(_cpu.Memory, pc);
+            SplitMnemonic(mnemonic, out var opcode, out var operand);
+
+            DisassemblyLines.Add(new DisassemblyLine
+            {
+                Marker = i == 0 ? "►" : " ",
+                Address = $"{pc:X4}:",
+                Opcode = opcode,
+                Operand = operand,
+                IsCurrent = i == 0,
+                HasBreakpoint = _debugger.HasBreakpoint(pc)
+            });
+
+            pc += (ushort)length;
+        }
+    }
+
+    private static void SplitMnemonic(string mnemonic, out string opcode, out string operand)
+    {
+        int space = mnemonic.IndexOf(' ');
+        if (space < 0)
+        {
+            opcode = mnemonic;
+            operand = "";
+            return;
+        }
+
+        opcode = mnemonic[..space];
+        operand = mnemonic[(space + 1)..];
+    }
+
     public void RefreshMemory()
     {
         ushort addr = Convert.ToUInt16(MemoryAddress, 16);
@@ -192,32 +232,24 @@ public partial class Cdp1802ViewModel : ObservableObject
         MemoryDump = sb.ToString();
     }
 
-    /// <summary>
-    /// Refresh peripheral status.
-    /// </summary>
     public void RefreshPeripherals()
     {
-        UartStatus = $"TX: 0x{_uart.LastTransmittedByte:X2} ({(_uart.HasTransmitted ? "sent" : "idle")})";
-        TimerStatus = $"Counter: {_timer.Counter}  Compare: {_timer.CompareValue}";
-        GpioStatus = $"OUT: 0x{_gpio.OutputValue:X2}  DIR: 0x{_gpio.DirectionMask:X2}";
-        PixieStatus = $"{(_pixie.Read(0x02) != 0 ? "ON" : "OFF")} ({_pixie.Width}x{_pixie.Height})";
-        KeyboardStatus = $"{_keyboard.Count} keys buffered";
+        UartStatus = $"TX 0x{_uart.LastTransmittedByte:X2} · {(_uart.HasTransmitted ? "sent" : "idle")}";
+        TimerStatus = $"CNT {_timer.Counter} · CMP {_timer.CompareValue}";
+        GpioStatus = $"OUT 0x{_gpio.OutputValue:X2} · DIR 0x{_gpio.DirectionMask:X2}";
+        PixieStatus = $"{(_pixie.Read(0x02) != 0 ? "ON" : "OFF")} · {_pixie.Width}×{_pixie.Height}";
+        KeyboardStatus = $"{_keyboard.Count} keys";
     }
 
-    /// <summary>
-    /// Refresh trace log.
-    /// </summary>
     public void RefreshTraceLog()
     {
         var sb = new StringBuilder();
         var logs = _debugger.TraceLog;
-        int start = Math.Max(0, logs.Count - 30);
+        int start = Math.Max(0, logs.Count - 40);
         for (int i = start; i < logs.Count; i++)
             sb.AppendLine(logs[i]);
         TraceLog = sb.ToString();
     }
-
-    // Commands
 
     [RelayCommand]
     private void Step()
@@ -244,7 +276,8 @@ public partial class Cdp1802ViewModel : ObservableObject
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                if (!_running) return;
+                if (!_running)
+                    return;
 
                 for (int i = 0; i < 1000; i++)
                 {
@@ -276,6 +309,7 @@ public partial class Cdp1802ViewModel : ObservableObject
     {
         StopRun();
         _cpu.Reset();
+        _previousValues.Clear();
         RefreshAll();
         StatusMessage = "Reset";
     }
@@ -283,19 +317,21 @@ public partial class Cdp1802ViewModel : ObservableObject
     [RelayCommand]
     private void ToggleBreakpoint()
     {
-        if (string.IsNullOrEmpty(BreakpointAddress)) return;
+        if (string.IsNullOrWhiteSpace(BreakpointAddress))
+            return;
+
         ushort addr = Convert.ToUInt16(BreakpointAddress, 16);
         _debugger.ToggleBreakpoint(addr);
+        RefreshDisassembly();
         StatusMessage = _debugger.HasBreakpoint(addr)
             ? $"Breakpoint added at 0x{addr:X4}"
             : $"Breakpoint removed at 0x{addr:X4}";
     }
 
     [RelayCommand]
-    private void LoadFile()
+    private void ToggleTrace()
     {
-        // This will be called from View with file picker
-        StatusMessage = "Load file...";
+        IsTraceExpanded = !IsTraceExpanded;
     }
 
     public void LoadFileFromPath(string path)
@@ -304,7 +340,6 @@ public partial class Cdp1802ViewModel : ObservableObject
         {
             byte[] data = System.IO.File.ReadAllBytes(path);
 
-            // Copy to CPU memory
             for (int i = 0; i < data.Length && i < _cpu.Memory.Length; i++)
                 _cpu.Memory[i] = data[i];
 
@@ -332,5 +367,19 @@ public partial class Cdp1802ViewModel : ObservableObject
             RefreshPeripherals();
             StatusMessage = $"Key '{key[0]}' pressed";
         }
+    }
+}
+
+file static class RegisterItemExtensions
+{
+    public static bool AnyChanged(this ObservableCollection<RegisterItem> items)
+    {
+        foreach (var item in items)
+        {
+            if (item.IsChanged)
+                return true;
+        }
+
+        return false;
     }
 }
