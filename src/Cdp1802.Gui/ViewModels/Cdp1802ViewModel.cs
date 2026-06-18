@@ -230,9 +230,27 @@ public partial class Cdp1802ViewModel : ObservableObject
 
         for (int i = 0; i < 16; i++)
         {
-            sb.Append($"{addr + i * 16:X4}: ");
+            ushort lineAddr = (ushort)(addr + i * 16);
+            sb.Append($"{lineAddr:X4}  ");
+
+            // Hex bytes
             for (int j = 0; j < 16; j++)
-                sb.Append($"{_cpu.Memory[addr + i * 16 + j]:X2} ");
+            {
+                byte b = _cpu.Memory[lineAddr + j];
+                sb.Append($"{b:X2} ");
+                if (j == 7) sb.Append(" ");
+            }
+
+            sb.Append(" |");
+
+            // ASCII representation
+            for (int j = 0; j < 16; j++)
+            {
+                byte b = _cpu.Memory[lineAddr + j];
+                sb.Append(b >= 0x20 && b < 0x7F ? (char)b : '.');
+            }
+
+            sb.Append('|');
             sb.AppendLine();
         }
 
