@@ -1,0 +1,260 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Cdp1802.Gui.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="Cdp1802.Gui.Views.MainWindow"
+        x:DataType="vm:Cdp1802ViewModel"
+        Title="RCA CDP1802 (COSMAC) Emulator"
+        Width="1200" Height="800"
+        WindowStartupLocation="CenterScreen">
+
+    <Design.DataContext>
+        <vm:Cdp1802ViewModel/>
+    </Design.DataContext>
+
+    <DockPanel>
+        <!-- Menu Bar -->
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Load Binary..." Command="{Binding LoadFileCommand}"/>
+                <Separator/>
+                <MenuItem Header="E_xit" Click="OnExit"/>
+            </MenuItem>
+            <MenuItem Header="_Emulation">
+                <MenuItem Header="_Step (F7)" Command="{Binding StepCommand}"/>
+                <MenuItem Header="_Run (F5)" Command="{Binding RunCommand}"/>
+                <MenuItem Header="_Reset" Command="{Binding ResetCommand}"/>
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About" Click="OnAbout"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- Toolbar -->
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4">
+            <Button Content="▶ Step" Command="{Binding StepCommand}" Width="80" Margin="2"/>
+            <Button Content="⏵ Run" Command="{Binding RunCommand}" Width="80" Margin="2"/>
+            <Button Content="⏹ Reset" Command="{Binding ResetCommand}" Width="80" Margin="2"/>
+            <Separator Width="20"/>
+            <TextBlock Text="Breakpoint:" VerticalAlignment="Center" Margin="4,0"/>
+            <TextBox Text="{Binding BreakpointAddress}" Width="80" Margin="2"/>
+            <Button Content="Set" Command="{Binding ToggleBreakpointCommand}" Width="50" Margin="2"/>
+            <Separator Width="20"/>
+            <TextBlock Text="Memory @:" VerticalAlignment="Center" Margin="4,0"/>
+            <TextBox Text="{Binding MemoryAddress}" Width="80" Margin="2"/>
+            <Button Content="Go" Command="{Binding UpdateMemoryAddressCommand}" Width="50" Margin="2"/>
+        </StackPanel>
+
+        <!-- Status Bar -->
+        <Border DockPanel.Dock="Bottom" Background="#2D2D30" Padding="8,4">
+            <DockPanel>
+                <TextBlock Text="{Binding StatusMessage}" Foreground="#CCCCCC" DockPanel.Dock="Left"/>
+                <TextBlock Text="{Binding TotalCycles}" Foreground="#CCCCCC" DockPanel.Dock="Right" HorizontalAlignment="Right"/>
+                <TextBlock Text="Cycles: " Foreground="#888888" DockPanel.Dock="Right"/>
+            </DockPanel>
+        </Border>
+
+        <!-- Main Content -->
+        <Grid ColumnDefinitions="*,*" RowDefinitions="*,*">
+
+            <!-- Top Left: Registers -->
+            <Border Grid.Row="0" Grid.Column="0" Margin="4" BorderBrush="#3F3F46" BorderThickness="1" Padding="4">
+                <DockPanel>
+                    <TextBlock Text="Registers" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,4" Foreground="#569CD6"/>
+                    <ScrollViewer>
+                        <Grid ColumnDefinitions="Auto,Auto,Auto,Auto">
+                            <!-- Row 0: Control registers -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="D:" Width="30"/>
+                                <TextBlock Text="{Binding RegD}" Width="30" FontWeight="Bold"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="DF:" Width="30"/>
+                                <TextBlock Text="{Binding RegDF}" Width="20"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="P:" Width="30"/>
+                                <TextBlock Text="{Binding RegP}" Width="20"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="X:" Width="30"/>
+                                <TextBlock Text="{Binding RegX}" Width="20"/>
+                            </StackPanel>
+
+                            <!-- Row 1 -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="T:" Width="30"/>
+                                <TextBlock Text="{Binding RegT}" Width="30"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="Q:" Width="30"/>
+                                <TextBlock Text="{Binding RegQ}" Width="20"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="IE:" Width="30"/>
+                                <TextBlock Text="{Binding RegIE}" Width="20"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="PC:" Width="30"/>
+                                <TextBlock Text="{Binding PcHex}" Width="40" FontWeight="Bold"/>
+                            </StackPanel>
+
+                            <!-- R0-R3 -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="R0:" Width="30"/>
+                                <TextBlock Text="{Binding R0}" Width="50" FontWeight="Bold"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="R1:" Width="30"/>
+                                <TextBlock Text="{Binding R1}" Width="50"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="R2:" Width="30"/>
+                                <TextBlock Text="{Binding R2}" Width="50"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="R3:" Width="30"/>
+                                <TextBlock Text="{Binding R3}" Width="50"/>
+                            </StackPanel>
+
+                            <!-- R4-R7 -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="R4:" Width="30"/>
+                                <TextBlock Text="{Binding R4}" Width="50"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="R5:" Width="30"/>
+                                <TextBlock Text="{Binding R5}" Width="50"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="R6:" Width="30"/>
+                                <TextBlock Text="{Binding R6}" Width="50"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="R7:" Width="30"/>
+                                <TextBlock Text="{Binding R7}" Width="50"/>
+                            </StackPanel>
+
+                            <!-- R8-RB -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="R8:" Width="30"/>
+                                <TextBlock Text="{Binding R8}" Width="50"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="R9:" Width="30"/>
+                                <TextBlock Text="{Binding R9}" Width="50"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="RA:" Width="30"/>
+                                <TextBlock Text="{Binding RA}" Width="50"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="RB:" Width="30"/>
+                                <TextBlock Text="{Binding RB}" Width="50"/>
+                            </StackPanel>
+
+                            <!-- RC-RF -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="RC:" Width="30"/>
+                                <TextBlock Text="{Binding RC}" Width="50"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="RD:" Width="30"/>
+                                <TextBlock Text="{Binding RD}" Width="50"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="RE:" Width="30"/>
+                                <TextBlock Text="{Binding RE}" Width="50"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="RF:" Width="30"/>
+                                <TextBlock Text="{Binding RF}" Width="50"/>
+                            </StackPanel>
+
+                            <!-- State -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="0,8,0,2" Grid.ColumnSpan="2">
+                                <TextBlock Text="State:" Width="50"/>
+                                <TextBlock Text="{Binding MachineState}" Width="100" FontWeight="Bold" Foreground="#4EC9B0"/>
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <!-- Top Right: Disassembly -->
+            <Border Grid.Row="0" Grid.Column="1" Margin="4" BorderBrush="#3F3F46" BorderThickness="1" Padding="4">
+                <DockPanel>
+                    <TextBlock Text="Disassembly" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,4" Foreground="#569CD6"/>
+                    <TextBox Text="{Binding Disassembly}"
+                             IsReadOnly="True"
+                             FontFamily="Consolas,Monospace"
+                             FontSize="13"
+                             Background="#1E1E1E"
+                             Foreground="#D4D4D4"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Bottom Left: Memory Dump -->
+            <Border Grid.Row="1" Grid.Column="0" Margin="4" BorderBrush="#3F3F46" BorderThickness="1" Padding="4">
+                <DockPanel>
+                    <TextBlock Text="Memory" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,4" Foreground="#569CD6"/>
+                    <TextBox Text="{Binding MemoryDump}"
+                             IsReadOnly="True"
+                             FontFamily="Consolas,Monospace"
+                             FontSize="13"
+                             Background="#1E1E1E"
+                             Foreground="#D4D4D4"/>
+                </DockPanel>
+            </Border>
+
+            <!-- Bottom Right: Peripherals & Trace -->
+            <Grid Grid.Row="1" Grid.Column="1" Margin="4" RowDefinitions="*,*">
+                <!-- Peripherals -->
+                <Border Grid.Row="0" Margin="0,0,0,4" BorderBrush="#3F3F46" BorderThickness="1" Padding="4">
+                    <DockPanel>
+                        <TextBlock Text="Peripherals" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,4" Foreground="#569CD6"/>
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="UART: " Width="50" Foreground="#888888"/>
+                                <TextBlock Text="{Binding UartStatus}" Foreground="#CCCCCC"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="Timer:" Width="50" Foreground="#888888"/>
+                                <TextBlock Text="{Binding TimerStatus}" Foreground="#CCCCCC"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="GPIO: " Width="50" Foreground="#888888"/>
+                                <TextBlock Text="{Binding GpioStatus}" Foreground="#CCCCCC"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="Pixie:" Width="50" Foreground="#888888"/>
+                                <TextBlock Text="{Binding PixieStatus}" Foreground="#CCCCCC"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <TextBlock Text="Keyb: " Width="50" Foreground="#888888"/>
+                                <TextBlock Text="{Binding KeyboardStatus}" Foreground="#CCCCCC"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <!-- Trace Log -->
+                <Border Grid.Row="1" BorderBrush="#3F3F46" BorderThickness="1" Padding="4">
+                    <DockPanel>
+                        <TextBlock Text="Trace Log" FontWeight="Bold" DockPanel.Dock="Top" Margin="0,0,0,4" Foreground="#569CD6"/>
+                        <TextBox Text="{Binding TraceLog}"
+                                 IsReadOnly="True"
+                                 FontFamily="Consolas,Monospace"
+                                 FontSize="11"
+                                 Background="#1E1E1E"
+                                 Foreground="#888888"
+                                 MaxHeight="200"/>
+                    </DockPanel>
+                </Border>
+            </Grid>
+
+        </Grid>
+    </DockPanel>
+</Window>
