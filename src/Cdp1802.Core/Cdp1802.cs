@@ -1369,6 +1369,8 @@ public class Cdp1802
 
     private void IDL()
     {
+        // IDL halts processor until DMA or interrupt (like real CDP1802)
+        IsHalted = true;
         _pcUpdated = true;
         TotalCycles += 2;
     }

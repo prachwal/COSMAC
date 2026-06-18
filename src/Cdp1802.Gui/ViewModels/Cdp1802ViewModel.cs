@@ -306,6 +306,14 @@ public partial class Cdp1802ViewModel : ObservableObject
 
                 for (int i = 0; i < 1000; i++)
                 {
+                    if (_cpu.IsHalted)
+                    {
+                        StopRun();
+                        StatusMessage = $"Halted (IDL) at 0x{_cpu.R[_cpu.P]:X4}";
+                        RefreshAll();
+                        return;
+                    }
+
                     if (_debugger.Step())
                     {
                         StopRun();
