@@ -187,6 +187,10 @@ public partial class Cdp1802ViewModel : ObservableObject
 
         _pixie.FrameReady += () => Dispatcher.UIThread.Post(RefreshPixie);
 
+        // Enable heatmap by default so it collects data during Run
+        _cpu.ResetAccessHeat();
+        IsHeatmapEnabled = true;
+
         RefreshAll();
     }
 
