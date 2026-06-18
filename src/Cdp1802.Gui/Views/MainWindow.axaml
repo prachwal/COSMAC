@@ -20,7 +20,7 @@
     <Window.KeyBindings>
         <KeyBinding Gesture="F6" Command="{Binding AssembleAndLoadCommand}"/>
         <KeyBinding Gesture="F7" Command="{Binding StepCommand}"/>
-        <KeyBinding Gesture="F5" Command="{Binding RunCommand}"/>
+        <KeyBinding Gesture="F5" Command="{Binding ToggleRunCommand}"/>
         <KeyBinding Gesture="F9" Command="{Binding ResetCommand}"/>
     </Window.KeyBindings>
 
@@ -41,7 +41,7 @@
             </MenuItem>
             <MenuItem Header="_Emulation">
                 <MenuItem Header="_Step (F7)" Command="{Binding StepCommand}"/>
-                <MenuItem Header="_Run / Stop (F5)" Command="{Binding RunCommand}"/>
+                <MenuItem Header="_Run / Stop (F5)" Command="{Binding ToggleRunCommand}"/>
                 <MenuItem Header="_Reset (F9)" Command="{Binding ResetCommand}"/>
             </MenuItem>
             <MenuItem Header="_View">
@@ -59,16 +59,18 @@
                 Padding="8,6">
             <StackPanel Orientation="Horizontal" Spacing="4">
                 <Button Classes="cosmac-toolbar" Content="▶ Step" Command="{Binding StepCommand}" ToolTip.Tip="Execute one instruction (F7)"/>
-                <Button Classes="cosmac-toolbar"
-                        Classes.run="{Binding !IsRunning}"
-                        Classes.stop="{Binding IsRunning}"
-                        Command="{Binding RunCommand}"
-                        ToolTip.Tip="Run / Stop emulation (F5)">
-                    <Panel>
-                        <TextBlock Text="⏵ Run" IsVisible="{Binding !IsRunning}"/>
-                        <TextBlock Text="⏹ Stop" IsVisible="{Binding IsRunning}"/>
-                    </Panel>
-                </Button>
+                <Panel>
+                    <Button Classes="cosmac-toolbar run"
+                            Content="⏵ Run"
+                            Command="{Binding RunCommand}"
+                            IsVisible="{Binding !IsRunning}"
+                            ToolTip.Tip="Start emulation (F5)"/>
+                    <Button Classes="cosmac-toolbar stop"
+                            Content="⏹ Stop"
+                            Command="{Binding StopCommand}"
+                            IsVisible="{Binding IsRunning}"
+                            ToolTip.Tip="Stop emulation (F5)"/>
+                </Panel>
                 <Button Classes="cosmac-toolbar" Content="↺ Reset" Command="{Binding ResetCommand}" ToolTip.Tip="Reset CPU (F9)"/>
             </StackPanel>
         </Border>

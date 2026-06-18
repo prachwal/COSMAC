@@ -333,27 +333,47 @@ public partial class Cdp1802ViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task RunAsync()
+    private void ToggleRun()
     {
         if (_running)
-        {
-            StopRun();
+            Stop();
+        else
+            Run();
+    }
+
+    [RelayCommand]
+    private void Run()
+    {
+        if (_running)
             return;
-        }
 
         _running = true;
         IsRunning = true;
         StatusMessage = "Running...";
         _runCts = new CancellationTokenSource();
         var token = _runCts.Token;
+        _ = Task.Run(() => RunBackground(token), token);
+    }
 
-        await Task.Run(() =>
+    [RelayCommand]
+    private void Stop()
+    {
+        if (!_running)
+            return;
+
+        StopRun();
+    }
+
+    private void RunBackground(CancellationToken token)
+    {
+        try
         {
             while (!token.IsCancellationRequested)
             {
                 for (int i = 0; i < 1000; i++)
                 {
-                    if (token.IsCancellationRequested) return;
+                    if (token.IsCancellationRequested)
+                        return;
 
                     if (_cpu.IsHalted)
                     {
@@ -361,8 +381,8 @@ public partial class Cdp1802ViewModel : ObservableObject
                         {
                             StatusMessage = $"Halted (IDL) at 0x{_cpu.R[_cpu.P]:X4}";
                             RefreshAll();
+                            StopRun();
                         });
-                        StopRun();
                         return;
                     }
 
@@ -372,22 +392,26 @@ public partial class Cdp1802ViewModel : ObservableObject
                         {
                             StatusMessage = $"Breakpoint hit at 0x{_cpu.R[_cpu.P]:X4}";
                             RefreshAll();
+                            StopRun();
                         });
-                        StopRun();
                         return;
                     }
                 }
 
-                Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshAll());
+                Avalonia.Threading.Dispatcher.UIThread.Post(RefreshAll);
             }
-        }, token);
-
-        if (!token.IsCancellationRequested)
-            StopRun();
+        }
+        catch (OperationCanceledException)
+        {
+            // expected on Stop
+        }
     }
 
     private void StopRun()
     {
+        if (!_running)
+            return;
+
         _running = false;
         IsRunning = false;
         _runCts?.Cancel();
