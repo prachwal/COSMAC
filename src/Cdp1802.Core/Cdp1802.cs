@@ -1228,6 +1228,10 @@ public class Cdp1802
         {
             R[P] = (ushort)((hi << 8) | lo);
         }
+        else
+        {
+            R[P]++;
+        }
         TotalCycles += 3;
     }
 
@@ -1241,6 +1245,10 @@ public class Cdp1802
         if (D != 0)
         {
             R[P] = (ushort)((hi << 8) | lo);
+        }
+        else
+        {
+            R[P]++;
         }
         TotalCycles += 3;
     }

@@ -5,8 +5,11 @@ namespace Cdp1802.Cli;
 
 public class Program
 {
-    public static void Main(string[] args)
+    public static async Task Main(string[] args)
     {
+        if (args.Length > 0 && await TryRunUartCommandAsync(args))
+            return;
+
         Console.WriteLine("=== RCA CDP1802 Emulator ===");
         Console.WriteLine();
 
@@ -66,6 +69,9 @@ public class Program
                     break;
                 case "--test-uart":
                     UartDemoTest.Run();
+                    break;
+                case "--test-uart-cmd":
+                    UartCmdTest.Run();
                     break;
                 case "--help":
                     PrintUsage();
@@ -145,6 +151,72 @@ public class Program
         }
     }
 
+    private static async Task<bool> TryRunUartCommandAsync(string[] args)
+    {
+        switch (args[0])
+        {
+            case "--uart-server":
+                await RunUartServer(args);
+                return true;
+            case "--uart-client":
+                await UartBridgeClient.RunAsync(ParseSocketPath(args));
+                return true;
+            case "--uart-start":
+                UartBridgeHost.StartBackground(ResolveFirmwarePath(args));
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static async Task RunUartServer(string[] args)
+    {
+        bool foreground = args.Contains("--foreground");
+        string firmware = ResolveFirmwarePath(args);
+        string? socket = ParseSocketPath(args);
+        await UartBridgeHost.RunServerAsync(foreground, firmware, socket);
+    }
+
+    private static string ResolveFirmwarePath(string[] args)
+    {
+        for (int i = 0; i < args.Length - 1; i++)
+        {
+            if (args[i] == "--firmware")
+                return Path.GetFullPath(args[i + 1]);
+        }
+
+        string root = FindRepoRoot();
+        return Path.Combine(root, "examples", "UART_ECHO_CMD.bin");
+    }
+
+    private static string? ParseSocketPath(string[] args)
+    {
+        for (int i = 0; i < args.Length - 1; i++)
+        {
+            if (args[i] == "--socket")
+                return args[i + 1];
+        }
+
+        return null;
+    }
+
+    private static string FindRepoRoot()
+    {
+        string dir = AppContext.BaseDirectory;
+        for (int i = 0; i < 8; i++)
+        {
+            if (File.Exists(Path.Combine(dir, "Cdp1802.sln")))
+                return dir;
+
+            string? parent = Directory.GetParent(dir)?.FullName;
+            if (parent is null)
+                break;
+            dir = parent;
+        }
+
+        return Directory.GetCurrentDirectory();
+    }
+
     private static void PrintUsage()
     {
         Console.WriteLine("Usage: Cdp1802.Cli [command] [options]");
@@ -154,10 +226,19 @@ public class Program
         Console.WriteLine("  --demo                 Run demo program");
         Console.WriteLine("  --benchmark            Run performance benchmark");
         Console.WriteLine("  --assemble <in> [out]  Assemble ASM file to binary");
+        Console.WriteLine("  --test-uart            Test UART_DEMO.bin");
+        Console.WriteLine("  --uart-start           Start UART bridge server in background");
+        Console.WriteLine("  --uart-server          Run UART bridge server (add --foreground to stay attached)");
+        Console.WriteLine("  --uart-client          Connect UART terminal client (Ctrl+C stops server)");
         Console.WriteLine("  --help                 Show this help");
         Console.WriteLine();
+        Console.WriteLine("UART options:");
+        Console.WriteLine("  --firmware <path>      Firmware binary (default: examples/UART_ECHO_CMD.bin)");
+        Console.WriteLine("  --socket <path>        Unix socket path (default: /tmp/cdp1802-uart.sock)");
+        Console.WriteLine();
         Console.WriteLine("Examples:");
-        Console.WriteLine("  dotnet run -- --assemble UART_DEMO.asm UART_DEMO.bin");
-        Console.WriteLine("  dotnet run -- --assemble program.asm");
+        Console.WriteLine("  dotnet run --project src/Cdp1802.Cli -- --uart-start");
+        Console.WriteLine("  dotnet run --project src/Cdp1802.Cli -- --uart-client");
+        Console.WriteLine("  dotnet run -- --assemble examples/asm/UART_ECHO_CMD.asm examples/UART_ECHO_CMD.bin");
     }
 }

@@ -444,6 +444,20 @@ public class InstructionTests
     }
 
     [Fact]
+    public void LBZ_NotTaken_AdvancesPastOperandBytes()
+    {
+        _cpu.D = 0x55;
+        _cpu.Memory[0x0000] = 0xC2; // LBZ
+        _cpu.Memory[0x0001] = 0x10;
+        _cpu.Memory[0x0002] = 0x00;
+        _cpu.Memory[0x0003] = 0xC4; // NOP
+
+        _cpu.Step();
+
+        Assert.Equal((ushort)0x0003, _cpu.R[_cpu.P]);
+    }
+
+    [Fact]
     public void NOP_NoOperation()
     {
         // Arrange
