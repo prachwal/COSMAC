@@ -10,13 +10,14 @@ using Cdp1802.Core;
 using Cdp1802.Gui.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Avalonia;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
+using Avalonia.Threading;
 using Timer = Cdp1802.Core.Timer;
 
 namespace Cdp1802.Gui.ViewModels;
 
-/// <summary>
-/// Single row in hex dump view.
-/// </summary>
 public partial class MemoryRow : ObservableObject
 {
     [ObservableProperty] private string _address = "0000";
@@ -102,6 +103,52 @@ public partial class Cdp1802ViewModel : ObservableObject
     public ObservableCollection<DisassemblyLine> DisassemblyLines { get; } = new();
     public IReadOnlyList<ExampleProgram> ExamplePrograms => Core.ExamplePrograms.All;
 
+    // Phase 1: Light theme
+    [ObservableProperty] private bool _isLightTheme;
+
+    partial void OnIsLightThemeChanged(bool value)
+    {
+        Avalonia.Application.Current!.RequestedThemeVariant =
+            value ? Avalonia.Styling.ThemeVariant.Light : Avalonia.Styling.ThemeVariant.Dark;
+        AppSettings.Current.IsLightTheme = value;
+    }
+
+    // Phase 1: Error list
+    public ObservableCollection<AssemblerError> AssemblerErrorItems { get; } = new();
+    [ObservableProperty] private bool _hasErrors;
+
+    // Phase 1: Responsive layout
+    [ObservableProperty] private bool _isCompact;
+
+    // Phase 2: Watchpoints & Breakpoints
+    public ObservableCollection<WatchpointItem> Watchpoints { get; } = new();
+    [ObservableProperty] private string _watchpointAddress = "";
+    public ObservableCollection<BreakpointItem> Breakpoints { get; } = new();
+    [ObservableProperty] private string _breakpointCondition = "";
+
+    // Phase 2: Performance
+    public PerformanceMetrics Perf { get; } = new();
+    private long _perfWindowStartTick;
+    private ulong _perfStartCycles;
+    private int _perfStartSteps;
+
+    // Phase 3: Heatmap
+    [ObservableProperty] private uint[]? _heatSnapshot;
+    [ObservableProperty] private bool _isHeatmapEnabled;
+
+    // Phase 3: Step back
+    private readonly LinkedList<CpuSnapshot> _history = new();
+    private const int MaxHistory = 200;
+    [ObservableProperty] private bool _canStepBack;
+
+    // Phase 3: Pixie
+    [ObservableProperty] private WriteableBitmap? _pixieBitmap;
+
+    // Phase 3: Timer/Gpio/UART extended
+    [ObservableProperty] private string _uartConsole = "";
+    [ObservableProperty] private long _timerCounter;
+    [ObservableProperty] private int _timerCompare;
+
     public Cdp1802ViewModel()
     {
         _cpu = new Core.Cdp1802();
@@ -133,11 +180,24 @@ public partial class Cdp1802ViewModel : ObservableObject
 
         AssemblerSource = Core.ExamplePrograms.Find("hello")?.Source ?? "";
         MemoryAddress = "1000";
+
+        // Apply saved settings
+        IsLightTheme = AppSettings.Current.IsLightTheme;
+        _debugger.SetTrace(AppSettings.Current.TraceEnabled);
+
+        _pixie.FrameReady += () => Dispatcher.UIThread.Post(RefreshPixie);
+
         RefreshAll();
     }
 
     public Core.Cdp1802 Cpu => _cpu;
     public Debugger Dbg => _debugger;
+
+    public void ApplySettings()
+    {
+        IsLightTheme = AppSettings.Current.IsLightTheme;
+        _debugger.SetTrace(AppSettings.Current.TraceEnabled);
+    }
 
     public void RefreshAll()
     {
@@ -235,16 +295,33 @@ public partial class Cdp1802ViewModel : ObservableObject
             var (mnemonic, length) = InstructionTiming.Disassemble(_cpu.Memory, pc);
             SplitMnemonic(mnemonic, out var opcode, out var operand);
 
+            byte byteOpcode = _cpu.Memory[pc];
+            int cycles = InstructionTiming.GetCycles(byteOpcode);
+            string branchTarget = ComputeBranchTarget(pc, opcode, operand);
+
             var line = DisassemblyLines[i];
             line.Marker = i == 0 ? "►" : " ";
             line.Address = $"{pc:X4}:";
+            line.Pc = pc;
             line.Opcode = opcode;
             line.Operand = operand;
+            line.Cycles = cycles > 0 ? $"[{cycles}]" : "";
+            line.BranchTarget = branchTarget;
             line.IsCurrent = i == 0;
             line.HasBreakpoint = _debugger.HasBreakpoint(pc);
 
             pc += (ushort)length;
         }
+    }
+
+    private static string ComputeBranchTarget(ushort pc, string opcode, string operand)
+    {
+        if ((opcode == "LBR" || opcode.StartsWith("LB") && opcode != "LSNQ" && opcode != "LSNZ" && opcode != "LSNF" && opcode != "LSKP" && opcode != "LSIE" && opcode != "LSQ" && opcode != "LSZ" && opcode != "LSDF") || opcode == "BR" || opcode == "BZ" || opcode == "BNZ" || opcode == "BDF" || opcode == "BNF" || opcode == "BQ" || opcode == "BNQ")
+        {
+            if (ushort.TryParse(operand, System.Globalization.NumberStyles.HexNumber, null, out var target))
+                return $"→ {target:X4}";
+        }
+        return "";
     }
 
     private static void SplitMnemonic(string mnemonic, out string opcode, out string operand)
@@ -292,7 +369,6 @@ public partial class Cdp1802ViewModel : ObservableObject
             row.BE = bytes[14].ToString("X2");
             row.BF = bytes[15].ToString("X2");
 
-            // ASCII
             var ascii = new StringBuilder(16);
             for (int j = 0; j < 16; j++)
             {
@@ -307,16 +383,23 @@ public partial class Cdp1802ViewModel : ObservableObject
     {
         UartStatus = $"TX 0x{_uart.LastTransmittedByte:X2} · {(_uart.HasTransmitted ? "sent" : "idle")}";
         TimerStatus = $"CNT {_timer.Counter} · CMP {_timer.CompareValue}";
+        TimerCounter = (long)_timer.Counter;
+        TimerCompare = _timer.CompareValue;
         GpioStatus = $"OUT 0x{_gpio.OutputValue:X2} · DIR 0x{_gpio.DirectionMask:X2}";
         PixieStatus = $"{(_pixie.Read(0x02) != 0 ? "ON" : "OFF")} · {_pixie.Width}×{_pixie.Height}";
         KeyboardStatus = $"{_keyboard.Count} keys";
+
+        if (_uart.HasTransmitted)
+        {
+            UartConsole += $"{(char)_uart.LastTransmittedByte}";
+        }
     }
 
     public void RefreshTraceLog()
     {
         var sb = new StringBuilder();
         var logs = _debugger.TraceLog;
-        int start = Math.Max(0, logs.Count - 40);
+        int start = Math.Max(0, logs.Count - AppSettings.Current.TraceTailLines);
         for (int i = start; i < logs.Count; i++)
             sb.AppendLine(logs[i]);
         TraceLog = sb.ToString();
@@ -325,9 +408,47 @@ public partial class Cdp1802ViewModel : ObservableObject
     [RelayCommand]
     private void Step()
     {
+        var snap = new CpuSnapshot();
+        Array.Copy(_cpu.R, snap.R, 16);
+        snap.D = _cpu.D; snap.DF = _cpu.DF; snap.P = _cpu.P; snap.X = _cpu.X;
+        snap.T = _cpu.T; snap.Q = _cpu.Q; snap.IE = _cpu.IE;
+        snap.TotalCycles = _cpu.TotalCycles;
+
+        _cpu.BeginDeltaTracking();
         _debugger.Step();
+        snap.MemoryDelta = _cpu.EndDeltaTracking() ?? new();
+
+        _history.AddLast(snap);
+        if (_history.Count > MaxHistory)
+            _history.RemoveFirst();
+
+        CanStepBack = _history.Count > 0;
         RefreshAll();
         StatusMessage = $"Stepped to 0x{_cpu.R[_cpu.P]:X4}";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanStepBack))]
+    private void StepBack()
+    {
+        if (_history.Last is null) return;
+
+        var snap = _history.Last.Value;
+        _history.RemoveLast();
+
+        Array.Copy(snap.R, _cpu.R, 16);
+        _cpu.D = snap.D; _cpu.DF = snap.DF; _cpu.P = snap.P; _cpu.X = snap.X;
+        _cpu.T = snap.T; _cpu.Q = snap.Q; _cpu.IE = snap.IE;
+        _cpu.RestoreCycles(snap.TotalCycles);
+
+        for (int k = snap.MemoryDelta.Count - 1; k >= 0; k--)
+        {
+            var (addr, oldVal) = snap.MemoryDelta[k];
+            _cpu.Memory[addr] = oldVal;
+        }
+
+        CanStepBack = _history.Count > 0;
+        RefreshAll();
+        StatusMessage = $"Stepped back to 0x{_cpu.R[_cpu.P]:X4}";
     }
 
     [RelayCommand]
@@ -350,6 +471,9 @@ public partial class Cdp1802ViewModel : ObservableObject
         StatusMessage = "Running...";
         _runCts = new CancellationTokenSource();
         var token = _runCts.Token;
+        _perfWindowStartTick = Environment.TickCount64;
+        _perfStartCycles = _cpu.TotalCycles;
+        _perfStartSteps = _debugger.StepCount;
         _ = Task.Run(() => RunBackground(token), token);
     }
 
@@ -369,14 +493,15 @@ public partial class Cdp1802ViewModel : ObservableObject
             _lastUiRefreshTick = Environment.TickCount64;
             while (!token.IsCancellationRequested)
             {
-                for (int i = 0; i < 1000; i++)
+                int batchSize = AppSettings.Current.InstructionsPerBatch;
+                for (int i = 0; i < batchSize; i++)
                 {
                     if (token.IsCancellationRequested)
                         return;
 
                     if (_cpu.IsHalted)
                     {
-                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        Dispatcher.UIThread.Post(() =>
                         {
                             StatusMessage = $"Halted (IDL) at 0x{_cpu.R[_cpu.P]:X4}";
                             RefreshAll();
@@ -387,9 +512,13 @@ public partial class Cdp1802ViewModel : ObservableObject
 
                     if (_debugger.Step())
                     {
-                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        Dispatcher.UIThread.Post(() =>
                         {
-                            StatusMessage = $"Breakpoint hit at 0x{_cpu.R[_cpu.P]:X4}";
+                            StatusMessage = _debugger.IsWatchpointHit
+                                ? $"Watchpoint hit @ 0x{_debugger.WatchpointAddress:X4}"
+                                : $"Breakpoint hit at 0x{_cpu.R[_cpu.P]:X4}";
+                            RefreshWatchpoints();
+                            RefreshBreakpoints();
                             RefreshAll();
                             StopRun();
                         });
@@ -397,14 +526,25 @@ public partial class Cdp1802ViewModel : ObservableObject
                     }
                 }
 
-                // Throttle UI updates to ~30 Hz and coalesce multiple refresh requests
                 long now = Environment.TickCount64;
                 if (!_refreshPending && now - _lastUiRefreshTick >= 33)
                 {
                     _refreshPending = true;
                     _lastUiRefreshTick = now;
-                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    Dispatcher.UIThread.Post(() =>
                     {
+                        double secs = (now - _perfWindowStartTick) / 1000.0;
+                        if (secs > 0)
+                        {
+                            ulong dc = _cpu.TotalCycles - _perfStartCycles;
+                            int di = _debugger.StepCount - _perfStartSteps;
+                            Perf.Ips = di / secs;
+                            Perf.EffectiveMhz = dc / secs / 1e6;
+                            Perf.TotalInstructions = _debugger.StepCount;
+                            Perf.IpsHistory.Add(Perf.Ips);
+                            if (Perf.IpsHistory.Count > 60) Perf.IpsHistory.RemoveAt(0);
+                        }
+                        UpdateHeatmap();
                         RefreshAll();
                         _refreshPending = false;
                     });
@@ -413,7 +553,6 @@ public partial class Cdp1802ViewModel : ObservableObject
         }
         catch (OperationCanceledException)
         {
-            // expected on Stop
         }
     }
 
@@ -435,6 +574,8 @@ public partial class Cdp1802ViewModel : ObservableObject
     private void Reset()
     {
         StopRun();
+        _history.Clear();
+        CanStepBack = false;
         _cpu.Reset();
         _previousValues.Clear();
         RefreshAll();
@@ -453,6 +594,70 @@ public partial class Cdp1802ViewModel : ObservableObject
         StatusMessage = _debugger.HasBreakpoint(addr)
             ? $"Breakpoint added at 0x{addr:X4}"
             : $"Breakpoint removed at 0x{addr:X4}";
+    }
+
+    [RelayCommand]
+    private void ToggleBreakpointAtPc(ushort pc)
+    {
+        _debugger.ToggleBreakpoint(pc);
+        RefreshDisassembly();
+        StatusMessage = _debugger.HasBreakpoint(pc)
+            ? $"Breakpoint added at 0x{pc:X4}"
+            : $"Breakpoint removed at 0x{pc:X4}";
+    }
+
+    // Phase 2: Watchpoints
+    [RelayCommand]
+    private void AddWatchpoint()
+    {
+        if (ushort.TryParse(WatchpointAddress, System.Globalization.NumberStyles.HexNumber, null, out var addr))
+        {
+            _debugger.AddWatchpoint(addr);
+            WatchpointAddress = "";
+            RefreshWatchpoints();
+        }
+    }
+
+    [RelayCommand]
+    private void AddConditionalBreakpoint()
+    {
+        if (ushort.TryParse(BreakpointAddress, System.Globalization.NumberStyles.HexNumber, null, out var addr))
+        {
+            var (func, err) = Models.ConditionParser.Parse(BreakpointCondition);
+            if (err != null)
+            {
+                StatusMessage = $"Parse error: {err}";
+                return;
+            }
+            _debugger.AddConditionalBreakpoint(addr, func, BreakpointCondition);
+            BreakpointAddress = "";
+            BreakpointCondition = "";
+            RefreshBreakpoints();
+        }
+    }
+
+    private void RefreshWatchpoints()
+    {
+        Watchpoints.Clear();
+        foreach (var kv in _debugger.Watchpoints)
+        {
+            Watchpoints.Add(new WatchpointItem
+            {
+                Address = $"{kv.Key:X4}",
+                OldValue = $"{kv.Value.oldVal:X2}",
+                NewValue = $"{kv.Value.newVal:X2}",
+                IsHit = _debugger.IsWatchpointHit
+            });
+        }
+    }
+
+    private void RefreshBreakpoints()
+    {
+        Breakpoints.Clear();
+        foreach (var addr in _debugger.Breakpoints)
+            Breakpoints.Add(new BreakpointItem { Address = $"{addr:X4}" });
+        foreach (var bp in _debugger.ConditionalBreakpoints)
+            Breakpoints.Add(new BreakpointItem { Address = $"{bp.Address:X4}", Condition = bp.Expression });
     }
 
     [RelayCommand]
@@ -494,6 +699,13 @@ public partial class Cdp1802ViewModel : ObservableObject
         if (!result.Success)
         {
             AssemblerErrors = string.Join(Environment.NewLine, result.Errors);
+            AssemblerErrorItems.Clear();
+            foreach (var errStr in result.Errors)
+            {
+                var line = ExtractLineNumber(errStr);
+                AssemblerErrorItems.Add(new AssemblerError { Line = line, Message = errStr });
+            }
+            HasErrors = true;
             AssemblerListing = "";
             StatusMessage = $"Assembly failed ({result.Errors.Count} errors)";
             SelectedCodeTab = 1;
@@ -501,9 +713,17 @@ public partial class Cdp1802ViewModel : ObservableObject
         }
 
         AssemblerErrors = "";
+        AssemblerErrorItems.Clear();
+        HasErrors = false;
         AssemblerListing = result.Listing;
         LoadProgramBytes(result.Binary, result.Origin);
         SelectedCodeTab = 0;
+    }
+
+    private static int ExtractLineNumber(string error)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(error, @"[Ll]ine (\d+)");
+        return match.Success ? int.Parse(match.Groups[1].Value) : 0;
     }
 
     [RelayCommand]
@@ -540,6 +760,53 @@ public partial class Cdp1802ViewModel : ObservableObject
             _keyboard.PressKey(key[0]);
             RefreshPeripherals();
             StatusMessage = $"Key '{key[0]}' pressed";
+        }
+    }
+
+    // Phase 3: Heatmap
+    [RelayCommand]
+    private void ToggleHeatmap()
+    {
+        if (_cpu.AccessHeat != null)
+            _cpu.DisableAccessHeat();
+        else
+            _cpu.ResetAccessHeat();
+        IsHeatmapEnabled = _cpu.AccessHeat != null;
+    }
+
+    public void UpdateHeatmap()
+    {
+        if (_cpu.AccessHeat != null)
+        {
+            for (int i = 0; i < 65536; i++)
+                _cpu.AccessHeat[i] = (uint)(_cpu.AccessHeat[i] * 7 / 8);
+
+            HeatSnapshot = _cpu.AccessHeat;
+        }
+    }
+
+    // Phase 3: Pixie
+    private void RefreshPixie()
+    {
+        if (!(_pixie.Read(0x02) != 0)) return;
+
+        int w = _pixie.Width;
+        int h = _pixie.Height;
+
+        if (PixieBitmap == null || PixieBitmap.PixelSize.Width != w || PixieBitmap.PixelSize.Height != h)
+            PixieBitmap = new WriteableBitmap(new PixelSize(w, h), new Vector(96, 96), PixelFormat.Bgra8888);
+
+        using var fb = PixieBitmap.Lock();
+        unsafe
+        {
+            uint* ptr = (uint*)fb.Address;
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    byte ci = _pixie.GetPixel(x, y) ? (byte)1 : (byte)0;
+                    var color = ci == 0 ? 0xFF000000U : 0xFFFFFFFFU;
+                    ptr[y * w + x] = color;
+                }
         }
     }
 }

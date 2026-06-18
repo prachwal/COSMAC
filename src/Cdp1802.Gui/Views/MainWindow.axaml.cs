@@ -1,3 +1,5 @@
+using System;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Cdp1802.Gui.ViewModels;
@@ -12,6 +14,11 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
 
+        LayoutUpdated += (s, e) =>
+        {
+            if (DataContext is Cdp1802ViewModel vm)
+                vm.IsCompact = Bounds.Width < 1040;
+        };
     }
 
     private async void OnLoadFile(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
@@ -41,6 +48,16 @@ public partial class MainWindow : Window
     private void OnExit(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         Close();
+    }
+
+    private async void OnSettings(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        var vm = new SettingsViewModel();
+        var win = new SettingsWindow { DataContext = vm };
+        if (await win.ShowDialog<bool>(this))
+        {
+            ViewModel?.ApplySettings();
+        }
     }
 
     private void OnAbout(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

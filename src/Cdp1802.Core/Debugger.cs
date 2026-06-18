@@ -1,5 +1,12 @@
 namespace Cdp1802.Core;
 
+public sealed class ConditionalBreakpoint
+{
+    public ushort Address { get; init; }
+    public Func<Cdp1802, bool>? Condition { get; init; }
+    public string Expression { get; init; } = "";
+}
+
 /// <summary>
 /// Debugger for CDP1802 emulator.
 /// Supports breakpoints, watchpoints, trace, and register dump.
@@ -11,6 +18,7 @@ public class Debugger
     private readonly Dictionary<ushort, (byte oldVal, byte newVal)> _watchpoints = new();
     private readonly List<string> _traceLog = new();
     private bool _traceEnabled;
+    private readonly List<ConditionalBreakpoint> _condBreakpoints = new();
 
     public bool IsBreakpointHit { get; private set; }
     public bool IsWatchpointHit { get; private set; }
@@ -19,6 +27,7 @@ public class Debugger
     public bool TraceEnabled => _traceEnabled;
     public IReadOnlyCollection<ushort> Breakpoints => _breakpoints;
     public IReadOnlyDictionary<ushort, (byte oldVal, byte newVal)> Watchpoints => _watchpoints;
+    public IReadOnlyList<ConditionalBreakpoint> ConditionalBreakpoints => _condBreakpoints;
 
     public Debugger(Cdp1802 cpu)
     {
@@ -66,6 +75,22 @@ public class Debugger
             _breakpoints.Remove(address);
         else
             _breakpoints.Add(address);
+    }
+
+    /// <summary>
+    /// Add a conditional breakpoint at address.
+    /// </summary>
+    public void AddConditionalBreakpoint(ushort addr, Func<Cdp1802, bool>? cond, string expr)
+    {
+        _condBreakpoints.Add(new() { Address = addr, Condition = cond, Expression = expr });
+    }
+
+    /// <summary>
+    /// Remove all conditional breakpoints at address.
+    /// </summary>
+    public void RemoveConditionalBreakpoint(ushort addr)
+    {
+        _condBreakpoints.RemoveAll(cb => cb.Address == addr);
     }
 
     /// <summary>
@@ -165,7 +190,17 @@ public class Debugger
         StepCount++;
         CheckWatchpoints();
 
-        return IsWatchpointHit;
+        ushort newPc = _cpu.R[_cpu.P];
+        foreach (var cb in _condBreakpoints)
+        {
+            if (cb.Address == newPc && (cb.Condition?.Invoke(_cpu) ?? true))
+            {
+                IsBreakpointHit = true;
+                return true;
+            }
+        }
+
+        return IsWatchpointHit || IsBreakpointHit;
     }
 
     /// <summary>

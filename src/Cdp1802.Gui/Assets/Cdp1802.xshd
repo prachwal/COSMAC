@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SyntaxDefinition name="CDP1802" extensions=".asm;.a1802" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
+    <Color name="Comment" foreground="#8B949E" />
+    <Color name="Opcode" foreground="#F0883E" />
+    <Color name="Register" foreground="#58A6FF" />
+    <Color name="Number" foreground="#79C0FF" />
+    <Color name="String" foreground="#A371F7" />
+
+    <RuleSet>
+        <Span color="Comment" begin=";" end="$"/>
+
+        <Rule color="Number">0x[0-9a-fA-F]+</Rule>
+        <Rule color="Number">\$[0-9a-fA-F]+</Rule>
+
+        <Rule color="Register">\bR[0-9A-Fa-f]\b</Rule>
+
+        <Keywords color="Opcode">
+            <Word>LDI</Word>
+            <Word>LDN</Word>
+            <Word>LDX</Word>
+            <Word>LDA</Word>
+            <Word>LDB</Word>
+            <Word>LDC</Word>
+            <Word>LDXP</Word>
+            <Word>STR</Word>
+            <Word>STXD</Word>
+            <Word>STXP</Word>
+            <Word>ADD</Word>
+            <Word>ADC</Word>
+            <Word>SUB</Word>
+            <Word>SBC</Word>
+            <Word>SMB</Word>
+            <Word>SAB</Word>
+            <Word>SAC</Word>
+            <Word>SASC</Word>
+            <Word>SDF</Word>
+            <Word>CDF</Word>
+            <Word>GLO</Word>
+            <Word>GHI</Word>
+            <Word>PLO</Word>
+            <Word>PHI</Word>
+            <Word>OR</Word>
+            <Word>AND</Word>
+            <Word>XOR</Word>
+            <Word>SHL</Word>
+            <Word>SHR</Word>
+            <Word>SHRC</Word>
+            <Word>INP</Word>
+            <Word>OUT</Word>
+            <Word>SEP</Word>
+            <Word>SEX</Word>
+            <Word>BR</Word>
+            <Word>BQ</Word>
+            <Word>BZ</Word>
+            <Word>BDF</Word>
+            <Word>BNQ</Word>
+            <Word>BNZ</Word>
+            <Word>BNF</Word>
+            <Word>LBR</Word>
+            <Word>LBDF</Word>
+            <Word>LBNF</Word>
+            <Word>LBNZ</Word>
+            <Word>LBDL</Word>
+            <Word>CALL</Word>
+            <Word>RETURN</Word>
+            <Word>MARK</Word>
+            <Word>IDL</Word>
+            <Word>ORG</Word>
+            <Word>DB</Word>
+            <Word>EQU</Word>
+        </Keywords>
+    </RuleSet>
+</SyntaxDefinition>

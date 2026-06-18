@@ -1,0 +1,40 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Cdp1802.Gui.ViewModels"
+        x:Class="Cdp1802.Gui.Views.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
+        Title="Settings"
+        Width="400" Height="300"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource BackgroundPrimaryBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}">
+
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="OK" Width="80" Click="OnOk"/>
+            <Button Content="Cancel" Width="80" Click="OnCancel"/>
+        </StackPanel>
+
+        <ScrollViewer>
+            <StackPanel Spacing="12">
+                <TextBlock Text="Appearance" FontWeight="SemiBold" Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                <CheckBox IsChecked="{Binding IsLightTheme}" Content="Light Theme"/>
+
+                <TextBlock Text="Execution" FontWeight="SemiBold" Foreground="{DynamicResource AccentPrimaryBrush}" Margin="0,8,0,0"/>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Instructions Per UI Batch (higher = faster, less responsive):" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                    <Slider Minimum="100" Maximum="100000" Value="{Binding InstructionsPerBatch}"/>
+                    <TextBlock Text="{Binding InstructionsPerBatch}" FontFamily="monospace" FontSize="11"/>
+                </StackPanel>
+
+                <TextBlock Text="Trace &amp; Logging" FontWeight="SemiBold" Foreground="{DynamicResource AccentPrimaryBrush}" Margin="0,8,0,0"/>
+                <CheckBox IsChecked="{Binding TraceEnabled}" Content="Enable Instruction Trace"/>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Trace Lines Retained:" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                    <NumericUpDown Value="{Binding TraceTailLines}" Minimum="10" Maximum="1000"/>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

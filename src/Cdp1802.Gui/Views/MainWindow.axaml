@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Cdp1802.Gui.ViewModels"
         xmlns:models="using:Cdp1802.Gui.Models"
+        xmlns:controls="using:Cdp1802.Gui.Controls"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="860"
@@ -11,7 +12,7 @@
         Width="1280" Height="860"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource BackgroundPrimaryBrush}">
+        Background="{DynamicResource BackgroundPrimaryBrush}">
 
     <Design.DataContext>
         <vm:Cdp1802ViewModel/>
@@ -30,6 +31,8 @@
                 <MenuItem Header="_Load Binary..." Click="OnLoadFile"/>
                 <MenuItem Header="_Assemble &amp; Load (F6)" Command="{Binding AssembleAndLoadCommand}"/>
                 <Separator/>
+                <MenuItem Header="_Settings..." Click="OnSettings"/>
+                <Separator/>
                 <MenuItem Header="E_xit" Click="OnExit"/>
             </MenuItem>
             <MenuItem Header="_Examples">
@@ -46,6 +49,8 @@
             </MenuItem>
             <MenuItem Header="_View">
                 <MenuItem Header="_Trace Log" Command="{Binding ToggleTraceCommand}"/>
+                <MenuItem Header="_Light Theme" ToggleType="CheckBox" IsChecked="{Binding IsLightTheme}"/>
+                <MenuItem Header="_Enable Heatmap" ToggleType="CheckBox" Command="{Binding ToggleHeatmapCommand}"/>
             </MenuItem>
             <MenuItem Header="_Help">
                 <MenuItem Header="_About" Click="OnAbout"/>
@@ -53,12 +58,13 @@
         </Menu>
 
         <Border DockPanel.Dock="Top"
-                Background="{StaticResource BackgroundPanelBrush}"
-                BorderBrush="{StaticResource BorderSubtleBrush}"
+                Background="{DynamicResource BackgroundPanelBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,0,0,1"
                 Padding="8,6">
             <StackPanel Orientation="Horizontal" Spacing="4">
                 <Button Classes="cosmac-toolbar" Content="▶ Step" Command="{Binding StepCommand}" ToolTip.Tip="Execute one instruction (F7)"/>
+                <Button Classes="cosmac-toolbar" Content="◀ Back" Command="{Binding StepBackCommand}" ToolTip.Tip="Undo last instruction"/>
                 <Panel>
                     <Button Classes="cosmac-toolbar run"
                             Content="⏵ Run"
@@ -76,51 +82,62 @@
         </Border>
 
         <Border DockPanel.Dock="Bottom"
-                Background="{StaticResource StatusBarBrush}"
-                BorderBrush="{StaticResource BorderSubtleBrush}"
+                Background="{DynamicResource StatusBarBrush}"
+                BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,1,0,0"
                 Padding="12,6">
-            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
                 <TextBlock Grid.Column="0"
                            Text="{Binding StatusMessage}"
-                           Foreground="{StaticResource TextPrimaryBrush}"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
                            VerticalAlignment="Center"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="16,0">
-                    <TextBlock Text="State:" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="State:" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding MachineState}"
-                               Foreground="{StaticResource AccentSecondaryBrush}"
+                               Foreground="{DynamicResource AccentSecondaryBrush}"
                                FontWeight="SemiBold"
                                VerticalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="16,0">
-                    <TextBlock Text="PC:" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="PC:" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding PcHex}"
-                               Foreground="{StaticResource HighlightPcTextBrush}"
-                               FontFamily="{StaticResource MonoFont}"
+                               Foreground="{DynamicResource HighlightPcTextBrush}"
+                               FontFamily="{DynamicResource MonoFont}"
                                FontWeight="SemiBold"
                                VerticalAlignment="Center"/>
                 </StackPanel>
                 <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" Margin="16,0,0,0">
-                    <TextBlock Text="Cycles:" Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="Cycles:" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding TotalCycles}"
-                               Foreground="{StaticResource TextPrimaryBrush}"
-                               FontFamily="{StaticResource MonoFont}"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               FontFamily="{DynamicResource MonoFont}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="6" Margin="16,0,0,0"
+                            IsVisible="{Binding IsRunning}">
+                    <TextBlock Text="IPS:" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Perf.Ips, StringFormat='{}{0:N0}'}"
+                               FontFamily="{DynamicResource MonoFont}"
+                               Foreground="{DynamicResource AccentSecondaryBrush}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock Text="{Binding Perf.EffectiveMhz, StringFormat='{}{0:F2} MHz'}"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
         </Border>
 
         <Grid Margin="2"
-              ColumnDefinitions="248,4,*"
+              ColumnDefinitions="Auto,4,*"
               RowDefinitions="*,4,168,Auto">
 
-            <Border Grid.Row="0" Grid.Column="0" Classes="cosmac-panel">
+            <Border Grid.Row="0" Grid.Column="0" Classes="cosmac-panel" MinWidth="220" MaxWidth="360">
                 <DockPanel>
                     <TextBlock Text="Registers" Classes="section-header" DockPanel.Dock="Top"/>
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel Spacing="8">
-                            <TextBlock Text="Control" Foreground="{StaticResource TextMutedBrush}" FontSize="11"/>
+                            <TextBlock Text="Control" Foreground="{DynamicResource TextMutedBrush}" FontSize="11"/>
 
                             <UniformGrid Columns="2" Rows="4">
                                 <Border Classes="reg-cell" Classes.changed="{Binding RegDChanged}">
@@ -168,12 +185,12 @@
                                 <Border Classes="reg-cell">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <TextBlock Text="PC" Classes="reg-label" Width="24"/>
-                                        <TextBlock Text="{Binding PcHex}" Classes="reg-value" Foreground="{StaticResource HighlightPcTextBrush}"/>
+                                        <TextBlock Text="{Binding PcHex}" Classes="reg-value" Foreground="{DynamicResource HighlightPcTextBrush}"/>
                                     </StackPanel>
                                 </Border>
                             </UniformGrid>
 
-                            <TextBlock Text="General (R0–RF)" Foreground="{StaticResource TextMutedBrush}" FontSize="11" Margin="0,4,0,0"/>
+                            <TextBlock Text="General (R0–RF)" Foreground="{DynamicResource TextMutedBrush}" FontSize="11" Margin="0,4,0,0"/>
 
                             <ItemsControl ItemsSource="{Binding GeneralRegisters}">
                                 <ItemsControl.ItemsPanel>
@@ -191,12 +208,12 @@
                                                 <TextBlock Text="{Binding Value}" Classes="reg-value"/>
                                                 <TextBlock Text="P"
                                                            FontSize="10"
-                                                           Foreground="{StaticResource HighlightPcTextBrush}"
+                                                           Foreground="{DynamicResource HighlightPcTextBrush}"
                                                            IsVisible="{Binding IsProgramCounter}"
                                                            VerticalAlignment="Center"/>
                                                 <TextBlock Text="X"
                                                            FontSize="10"
-                                                           Foreground="{StaticResource AccentPrimaryBrush}"
+                                                           Foreground="{DynamicResource AccentPrimaryBrush}"
                                                            IsVisible="{Binding IsDataPointer}"
                                                            VerticalAlignment="Center"/>
                                             </StackPanel>
@@ -210,7 +227,7 @@
                                     <TextBlock Text="State" Classes="reg-label"/>
                                     <TextBlock Text="{Binding MachineState}"
                                                Classes="reg-value"
-                                               Foreground="{StaticResource AccentSecondaryBrush}"/>
+                                               Foreground="{DynamicResource AccentSecondaryBrush}"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -221,16 +238,16 @@
             <GridSplitter Grid.Row="0" Grid.Column="1" Grid.RowSpan="3"
                           Width="4"
                           ResizeDirection="Columns"
-                          Background="{StaticResource BorderSubtleBrush}"/>
+                          Background="{DynamicResource BorderSubtleBrush}"/>
 
             <Border Grid.Row="0" Grid.Column="2" Classes="cosmac-panel" Padding="6,6,6,4">
                 <TabControl SelectedIndex="{Binding SelectedCodeTab}">
                     <TabItem Header="Disassembly">
                         <DockPanel Margin="4,8,4,4">
                             <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-                                <TextBlock Grid.Column="0" Text="Live trace at PC" Foreground="{StaticResource TextMutedBrush}" FontSize="11"/>
+                                <TextBlock Grid.Column="0" Text="Live trace at PC" Foreground="{DynamicResource TextMutedBrush}" FontSize="11"/>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                                    <TextBlock Text="BP @" VerticalAlignment="Center" Foreground="{StaticResource TextMutedBrush}"/>
+                                    <TextBlock Text="BP @" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"/>
                                     <TextBox Classes="cosmac-input"
                                              Text="{Binding BreakpointAddress}"
                                              PlaceholderText="0000"
@@ -243,33 +260,37 @@
                             </Grid>
                             <ScrollViewer VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled"
-                                          Background="{StaticResource BackgroundEditorBrush}">
+                                          Background="{DynamicResource BackgroundEditorBrush}">
                                 <ItemsControl ItemsSource="{Binding DisassemblyLines}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="models:DisassemblyLine">
-                                            <Border Classes="disasm-line" Classes.current="{Binding IsCurrent}">
-                                                <StackPanel Orientation="Horizontal" Spacing="4">
-                                                    <TextBlock Text="{Binding Marker}"
-                                                               Width="14"
-                                                               FontFamily="{StaticResource MonoFont}"
-                                                               Foreground="{StaticResource AccentSecondaryBrush}"/>
-                                                    <TextBlock Text="●"
-                                                               Foreground="{StaticResource BreakpointBrush}"
-                                                               IsVisible="{Binding HasBreakpoint}"
-                                                               FontSize="10"
-                                                               VerticalAlignment="Center"/>
-                                                    <TextBlock Text="{Binding Address}"
-                                                               FontFamily="{StaticResource MonoFont}"
-                                                               Foreground="{StaticResource SyntaxAddressBrush}"/>
-                                                    <TextBlock Text="{Binding Opcode}"
-                                                               FontFamily="{StaticResource MonoFont}"
-                                                               Foreground="{StaticResource SyntaxOpcodeBrush}"
-                                                               FontWeight="SemiBold"/>
-                                                    <TextBlock Text="{Binding Operand}"
-                                                               FontFamily="{StaticResource MonoFont}"
-                                                               Foreground="{StaticResource SyntaxOperandBrush}"/>
-                                                </StackPanel>
-                                            </Border>
+                                            <Button Background="Transparent" Padding="2,1"
+                                                    Command="{Binding $parent[ItemsControl].((vm:Cdp1802ViewModel)DataContext).ToggleBreakpointAtPcCommand}"
+                                                    CommandParameter="{Binding Pc}"
+                                                    Margin="0,1">
+                                                <Border Classes="disasm-line" Classes.current="{Binding IsCurrent}" Classes.breakpoint="{Binding HasBreakpoint}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="4" Margin="4,2">
+                                                        <TextBlock Text="{Binding Marker}" Foreground="{DynamicResource BreakpointBrush}" FontSize="9" FontWeight="Bold"/>
+                                                        <TextBlock Text="●"
+                                                                   Foreground="{DynamicResource BreakpointBrush}"
+                                                                   IsVisible="{Binding HasBreakpoint}"
+                                                                   FontSize="10"
+                                                                   VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding Cycles}" FontSize="9" Foreground="{DynamicResource TextMutedBrush}"/>
+                                                        <TextBlock Text="{Binding Address}"
+                                                                   FontFamily="{DynamicResource MonoFont}"
+                                                                   Foreground="{DynamicResource SyntaxAddressBrush}"/>
+                                                        <TextBlock Text="{Binding Opcode}"
+                                                                   FontFamily="{DynamicResource MonoFont}"
+                                                                   Foreground="{DynamicResource SyntaxOpcodeBrush}"
+                                                                   FontWeight="SemiBold"/>
+                                                        <TextBlock Text="{Binding Operand}"
+                                                                   FontFamily="{DynamicResource MonoFont}"
+                                                                   Foreground="{DynamicResource SyntaxOperandBrush}"/>
+                                                        <TextBlock Text="{Binding BranchTarget}" FontSize="9" Foreground="{DynamicResource AccentSecondaryBrush}"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </Button>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
@@ -285,7 +306,7 @@
                                         ToolTip.Tip="Assemble source and load into memory (F6)"/>
                                 <TextBlock Text="; comments · ORG · DB · labels · R0-RF"
                                            VerticalAlignment="Center"
-                                           Foreground="{StaticResource TextMutedBrush}"
+                                           Foreground="{DynamicResource TextMutedBrush}"
                                            FontSize="11"/>
                             </StackPanel>
                             <Grid RowDefinitions="*,Auto,120">
@@ -295,23 +316,31 @@
                                          AcceptsReturn="True"
                                          TextWrapping="NoWrap"
                                          MinHeight="180"/>
-                                <TextBlock Grid.Row="1"
-                                           Text="{Binding AssemblerErrors}"
-                                           Foreground="{StaticResource BreakpointBrush}"
-                                           FontFamily="{StaticResource MonoFont}"
-                                           FontSize="11"
-                                           Margin="0,6,0,4"
-                                           TextWrapping="Wrap"/>
+                                <Border Grid.Row="1" Classes="cosmac-panel" IsVisible="{Binding HasErrors}"
+                                        BorderBrush="{DynamicResource BreakpointBrush}"
+                                        Margin="0,6,0,4" Padding="6">
+                                    <ItemsControl ItemsSource="{Binding AssemblerErrorItems}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="models:AssemblerError">
+                                                <TextBlock Text="{Binding Display}"
+                                                           Foreground="{DynamicResource BreakpointBrush}"
+                                                           FontFamily="{DynamicResource MonoFont}"
+                                                           FontSize="11"
+                                                           Margin="0,2"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Border>
                                 <DockPanel Grid.Row="2">
                                     <TextBlock Text="Listing"
                                                DockPanel.Dock="Top"
-                                               Foreground="{StaticResource TextMutedBrush}"
+                                               Foreground="{DynamicResource TextMutedBrush}"
                                                FontSize="11"
                                                Margin="0,0,0,4"/>
-                                    <ScrollViewer Background="{StaticResource BackgroundEditorBrush}">
+                                    <ScrollViewer Background="{DynamicResource BackgroundEditorBrush}">
                                         <TextBox Classes="cosmac-editor"
                                                  FontSize="11"
-                                                 Foreground="{StaticResource TextMutedBrush}"
+                                                 Foreground="{DynamicResource TextMutedBrush}"
                                                  Text="{Binding AssemblerListing}"
                                                  IsReadOnly="True"/>
                                     </ScrollViewer>
@@ -319,15 +348,83 @@
                             </Grid>
                         </DockPanel>
                     </TabItem>
+                    <TabItem Header="Watch/Breaks">
+                        <StackPanel Margin="6" Spacing="8">
+                            <TextBlock Text="Watchpoints" FontWeight="SemiBold" Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBox Classes="cosmac-input" Text="{Binding WatchpointAddress}" Width="72" PlaceholderText="addr"/>
+                                <Button Content="Add Watch" Command="{Binding AddWatchpointCommand}"/>
+                            </StackPanel>
+                            <ItemsControl ItemsSource="{Binding Watchpoints}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="models:WatchpointItem">
+                                        <Border Classes="peripheral-badge" Padding="6">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Text="{Binding Address}" FontFamily="{DynamicResource MonoFont}"/>
+                                                <TextBlock Text="{Binding OldValue, StringFormat='{}{0} → '}" Foreground="{DynamicResource TextMutedBrush}" FontSize="10"/>
+                                                <TextBlock Text="{Binding NewValue}" Foreground="{DynamicResource AccentSecondaryBrush}"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <TextBlock Text="Conditional Breakpoints" FontWeight="SemiBold" Foreground="{DynamicResource AccentPrimaryBrush}" Margin="0,8,0,0"/>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBox Classes="cosmac-input" Text="{Binding BreakpointAddress}" Width="72" PlaceholderText="addr"/>
+                                <TextBox Classes="cosmac-input" Text="{Binding BreakpointCondition}" Width="120" PlaceholderText="D == 0xFF"/>
+                                <Button Content="Add BP" Command="{Binding AddConditionalBreakpointCommand}"/>
+                            </StackPanel>
+                            <ItemsControl ItemsSource="{Binding Breakpoints}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="models:BreakpointItem">
+                                        <Border Classes="peripheral-badge" Padding="6">
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Text="{Binding Address}" FontFamily="{DynamicResource MonoFont}"/>
+                                                <TextBlock Text="{Binding Condition}" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </TabItem>
+                    <TabItem Header="Heatmap">
+                        <Grid>
+                            <controls:MemoryHeatmap Heat="{Binding HeatSnapshot}"/>
+                        </Grid>
+                    </TabItem>
+                    <TabItem Header="Peripherals">
+                        <StackPanel Margin="6" Spacing="12">
+                            <StackPanel>
+                                <TextBlock Text="Display (Pixie)" FontWeight="SemiBold" Foreground="{DynamicResource AccentPrimaryBrush}"/>
+                                <Border Background="{DynamicResource BackgroundEditorBrush}" Padding="4" CornerRadius="4">
+                                    <controls:PixieDisplay Source="{Binding PixieBitmap}" Height="128"/>
+                                </Border>
+                            </StackPanel>
+
+                            <StackPanel>
+                                <TextBlock Text="UART Terminal" FontWeight="SemiBold"/>
+                                <TextBox IsReadOnly="True" Height="80" Text="{Binding UartConsole}"/>
+                            </StackPanel>
+
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Timer" FontWeight="SemiBold"/>
+                                <ProgressBar Value="{Binding TimerCounter}" Maximum="{Binding TimerCompare}"/>
+                                <TextBlock Text="{Binding TimerStatus}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </TabItem>
                 </TabControl>
             </Border>
 
             <GridSplitter Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
                           Height="4"
                           ResizeDirection="Rows"
-                          Background="{StaticResource BorderSubtleBrush}"/>
+                          Background="{DynamicResource BorderSubtleBrush}"/>
 
-            <Border Grid.Row="2" Grid.Column="0" Classes="cosmac-panel">
+            <Border Grid.Row="2" Grid.Column="0" Classes="cosmac-panel"
+                    IsVisible="{Binding !IsCompact}">
                 <DockPanel>
                     <TextBlock Text="Peripherals" Classes="section-header" DockPanel.Dock="Top"/>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -372,7 +469,7 @@
                     <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
                         <TextBlock Grid.Column="0" Text="Memory" Classes="section-header" Margin="0"/>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="@" VerticalAlignment="Center" Foreground="{StaticResource TextMutedBrush}"/>
+                            <TextBlock Text="@" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"/>
                             <TextBox Classes="cosmac-input"
                                      Text="{Binding MemoryAddress}"
                                      PlaceholderText="0000"
@@ -382,12 +479,11 @@
                                     Padding="8,4"/>
                         </StackPanel>
                     </Grid>
-                    <Border Background="{StaticResource BackgroundEditorBrush}"
+                    <Border Background="{DynamicResource BackgroundEditorBrush}"
                             CornerRadius="4"
                             Padding="8,4">
                         <DockPanel>
-                            <!-- Column headers -->
-                            <Grid DockPanel.Dock="Top" ColumnDefinitions="60,Auto,8,Auto,Auto,Auto,Auto,Auto,Auto,Auto,8,Auto,Auto,Auto,Auto,Auto,Auto,Auto,8,Auto,Auto,Auto,Auto,Auto,Auto,Auto,8,*"
+                            <Grid DockPanel.Dock="Top" ColumnDefinitions="60,Auto,8,Auto,Auto,Auto,Auto,Auto,Auto,Auto,8,Auto,Auto,Auto,Auto,Auto,Auto,Auto,8,*"
                                   Margin="0,0,0,4">
                                 <TextBlock Grid.Column="0" Text="Addr" Classes="hex-header"/>
                                 <TextBlock Grid.Column="2" Text="0" Classes="hex-header"/>
@@ -408,7 +504,6 @@
                                 <TextBlock Grid.Column="18" Text="F" Classes="hex-header"/>
                                 <TextBlock Grid.Column="20" Text="ASCII" Classes="hex-header"/>
                             </Grid>
-                            <!-- Memory rows -->
                             <ScrollViewer VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled">
                                 <ItemsControl ItemsSource="{Binding MemoryRows}">
@@ -416,11 +511,9 @@
                                         <DataTemplate>
                                             <Grid ColumnDefinitions="60,Auto,8,Auto,Auto,Auto,Auto,Auto,Auto,Auto,8,Auto,Auto,Auto,Auto,Auto,Auto,Auto,8,*"
                                                   Margin="0,1">
-                                                <!-- Address -->
                                                 <TextBlock Grid.Column="0"
                                                            Text="{Binding Address}"
                                                            Classes="hex-addr"/>
-                                                <!-- Hex bytes 0-7 -->
                                                 <TextBlock Grid.Column="2" Text="{Binding B0}" Classes="hex-byte"/>
                                                 <TextBlock Grid.Column="3" Text="{Binding B1}" Classes="hex-byte"/>
                                                 <TextBlock Grid.Column="4" Text="{Binding B2}" Classes="hex-byte"/>
@@ -429,7 +522,6 @@
                                                 <TextBlock Grid.Column="7" Text="{Binding B5}" Classes="hex-byte"/>
                                                 <TextBlock Grid.Column="8" Text="{Binding B6}" Classes="hex-byte"/>
                                                 <TextBlock Grid.Column="9" Text="{Binding B7}" Classes="hex-byte"/>
-                                                <!-- Hex bytes 8-F -->
                                                 <TextBlock Grid.Column="11" Text="{Binding B8}" Classes="hex-byte"/>
                                                 <TextBlock Grid.Column="12" Text="{Binding B9}" Classes="hex-byte"/>
                                                 <TextBlock Grid.Column="13" Text="{Binding BA}" Classes="hex-byte"/>
@@ -438,7 +530,6 @@
                                                 <TextBlock Grid.Column="16" Text="{Binding BD}" Classes="hex-byte"/>
                                                 <TextBlock Grid.Column="17" Text="{Binding BE}" Classes="hex-byte"/>
                                                 <TextBlock Grid.Column="18" Text="{Binding BF}" Classes="hex-byte"/>
-                                                <!-- ASCII -->
                                                 <TextBlock Grid.Column="20"
                                                            Text="{Binding Ascii}"
                                                            Classes="hex-ascii"/>
@@ -475,10 +566,10 @@
                     <ScrollViewer IsVisible="{Binding IsTraceExpanded}"
                                   MaxHeight="140"
                                   VerticalScrollBarVisibility="Auto"
-                                  Background="{StaticResource BackgroundEditorBrush}">
+                                  Background="{DynamicResource BackgroundEditorBrush}">
                         <TextBox Classes="cosmac-editor"
                                  FontSize="11"
-                                 Foreground="{StaticResource TextMutedBrush}"
+                                 Foreground="{DynamicResource TextMutedBrush}"
                                  Text="{Binding TraceLog}"
                                  IsReadOnly="True"/>
                     </ScrollViewer>

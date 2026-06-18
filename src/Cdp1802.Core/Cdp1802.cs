@@ -24,12 +24,46 @@ public class Cdp1802
     // Pamięć
     public byte[] Memory { get; } = new byte[65536];
 
+    // Access heat counters (optional, for heatmap)
+    public uint[]? AccessHeat { get; set; }
+
+    public void ResetAccessHeat()
+    {
+        AccessHeat = new uint[65536];
+    }
+
+    public void DisableAccessHeat()
+    {
+        AccessHeat = null;
+    }
+
+    public void RestoreCycles(ulong cycles) => _totalCycles = cycles;
+
+    private List<(ushort, byte)>? _currentMemoryDelta;
+
+    public void BeginDeltaTracking()
+    {
+        _currentMemoryDelta = new();
+    }
+
+    public List<(ushort, byte)>? EndDeltaTracking()
+    {
+        var delta = _currentMemoryDelta;
+        _currentMemoryDelta = null;
+        return delta;
+    }
+
+    // Use field directly for TotalCycles setter
+    private ulong _totalCycles;
+    public ulong TotalCycles
+    {
+        get => _totalCycles;
+        private set => _totalCycles = value;
+    }
+
     // Peryferia (memory-mapped I/O)
     private readonly List<IPeripheral> _peripherals = new();
     private bool _pcUpdated;
-
-    // Licznik cykli
-    public ulong TotalCycles { get; private set; }
 
     // Control pins (active low on real hardware, simulated as active high)
     public bool ClearPin { get; set; } = true;   // Active: reset processor
@@ -137,6 +171,7 @@ public class Cdp1802
 
     public byte ReadMemory(ushort address)
     {
+        if (AccessHeat != null) AccessHeat[address]++;
         var peripheral = FindPeripheral(address);
         if (peripheral != null)
             return peripheral.Read((ushort)(address - peripheral.BaseAddress));
@@ -145,6 +180,9 @@ public class Cdp1802
 
     public void WriteMemory(ushort address, byte value)
     {
+        if (_currentMemoryDelta != null)
+            _currentMemoryDelta.Add((address, Memory[address]));
+        if (AccessHeat != null) AccessHeat[address]++;
         var peripheral = FindPeripheral(address);
         if (peripheral != null)
         {
