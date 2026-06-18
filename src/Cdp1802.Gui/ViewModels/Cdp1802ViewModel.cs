@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,6 +13,35 @@ using CommunityToolkit.Mvvm.Input;
 using Timer = Cdp1802.Core.Timer;
 
 namespace Cdp1802.Gui.ViewModels;
+
+/// <summary>
+/// Single row in hex dump view.
+/// </summary>
+public class MemoryRow : INotifyPropertyChanged
+{
+    public string Address { get; set; } = "0000";
+    public string B0 { get; set; } = "--";
+    public string B1 { get; set; } = "--";
+    public string B2 { get; set; } = "--";
+    public string B3 { get; set; } = "--";
+    public string B4 { get; set; } = "--";
+    public string B5 { get; set; } = "--";
+    public string B6 { get; set; } = "--";
+    public string B7 { get; set; } = "--";
+    public string B8 { get; set; } = "--";
+    public string B9 { get; set; } = "--";
+    public string BA { get; set; } = "--";
+    public string BB { get; set; } = "--";
+    public string BC { get; set; } = "--";
+    public string BD { get; set; } = "--";
+    public string BE { get; set; } = "--";
+    public string BF { get; set; } = "--";
+    public string Ascii { get; set; } = "................";
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    protected void OnPropertyChanged([CallerMemberName] string? name = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+}
 
 public partial class Cdp1802ViewModel : ObservableObject
 {
@@ -51,7 +82,7 @@ public partial class Cdp1802ViewModel : ObservableObject
     [ObservableProperty] private string _pcHex = "0000";
     [ObservableProperty] private bool _machineStateChanged;
 
-    [ObservableProperty] private string _memoryDump = "";
+    public ObservableCollection<MemoryRow> MemoryRows { get; } = new();
     [ObservableProperty] private string _uartStatus = "";
     [ObservableProperty] private string _timerStatus = "";
     [ObservableProperty] private string _gpioStatus = "";
@@ -229,35 +260,49 @@ public partial class Cdp1802ViewModel : ObservableObject
     public void RefreshMemory()
     {
         ushort addr = Convert.ToUInt16(MemoryAddress, 16);
-        var sb = new StringBuilder();
+
+        MemoryRows.Clear();
 
         for (int i = 0; i < 16; i++)
         {
             ushort lineAddr = (ushort)(addr + i * 16);
-            sb.Append($"{lineAddr:X4}  ");
+            var row = new MemoryRow
+            {
+                Address = $"{lineAddr:X4}"
+            };
 
-            // Hex bytes
+            byte[] bytes = new byte[16];
+            for (int j = 0; j < 16; j++)
+                bytes[j] = _cpu.Memory[lineAddr + j];
+
+            row.B0 = bytes[0].ToString("X2");
+            row.B1 = bytes[1].ToString("X2");
+            row.B2 = bytes[2].ToString("X2");
+            row.B3 = bytes[3].ToString("X2");
+            row.B4 = bytes[4].ToString("X2");
+            row.B5 = bytes[5].ToString("X2");
+            row.B6 = bytes[6].ToString("X2");
+            row.B7 = bytes[7].ToString("X2");
+            row.B8 = bytes[8].ToString("X2");
+            row.B9 = bytes[9].ToString("X2");
+            row.BA = bytes[10].ToString("X2");
+            row.BB = bytes[11].ToString("X2");
+            row.BC = bytes[12].ToString("X2");
+            row.BD = bytes[13].ToString("X2");
+            row.BE = bytes[14].ToString("X2");
+            row.BF = bytes[15].ToString("X2");
+
+            // ASCII
+            var ascii = new StringBuilder(16);
             for (int j = 0; j < 16; j++)
             {
-                byte b = _cpu.Memory[lineAddr + j];
-                sb.Append($"{b:X2} ");
-                if (j == 7) sb.Append(" ");
+                byte b = bytes[j];
+                ascii.Append(b >= 0x20 && b < 0x7F ? (char)b : '.');
             }
+            row.Ascii = ascii.ToString();
 
-            sb.Append(" |");
-
-            // ASCII representation
-            for (int j = 0; j < 16; j++)
-            {
-                byte b = _cpu.Memory[lineAddr + j];
-                sb.Append(b >= 0x20 && b < 0x7F ? (char)b : '.');
-            }
-
-            sb.Append('|');
-            sb.AppendLine();
+            MemoryRows.Add(row);
         }
-
-        MemoryDump = sb.ToString();
     }
 
     public void RefreshPeripherals()

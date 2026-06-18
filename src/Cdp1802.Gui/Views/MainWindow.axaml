@@ -380,13 +380,73 @@
                                     Padding="8,4"/>
                         </StackPanel>
                     </Grid>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Auto"
-                                  Background="{StaticResource BackgroundEditorBrush}">
-                        <TextBox Classes="cosmac-editor"
-                                 Text="{Binding MemoryDump}"
-                                 IsReadOnly="True"/>
-                    </ScrollViewer>
+                    <Border Background="{StaticResource BackgroundEditorBrush}"
+                            CornerRadius="4"
+                            Padding="8,4">
+                        <DockPanel>
+                            <!-- Column headers -->
+                            <Grid DockPanel.Dock="Top" ColumnDefinitions="60,Auto,8,Auto,Auto,Auto,Auto,Auto,Auto,Auto,8,Auto,Auto,Auto,Auto,Auto,Auto,Auto,8,Auto,Auto,Auto,Auto,Auto,Auto,Auto,8,*"
+                                  Margin="0,0,0,4">
+                                <TextBlock Grid.Column="0" Text="Addr" Classes="hex-header"/>
+                                <TextBlock Grid.Column="2" Text="0" Classes="hex-header"/>
+                                <TextBlock Grid.Column="3" Text="1" Classes="hex-header"/>
+                                <TextBlock Grid.Column="4" Text="2" Classes="hex-header"/>
+                                <TextBlock Grid.Column="5" Text="3" Classes="hex-header"/>
+                                <TextBlock Grid.Column="6" Text="4" Classes="hex-header"/>
+                                <TextBlock Grid.Column="7" Text="5" Classes="hex-header"/>
+                                <TextBlock Grid.Column="8" Text="6" Classes="hex-header"/>
+                                <TextBlock Grid.Column="9" Text="7" Classes="hex-header"/>
+                                <TextBlock Grid.Column="11" Text="8" Classes="hex-header"/>
+                                <TextBlock Grid.Column="12" Text="9" Classes="hex-header"/>
+                                <TextBlock Grid.Column="13" Text="A" Classes="hex-header"/>
+                                <TextBlock Grid.Column="14" Text="B" Classes="hex-header"/>
+                                <TextBlock Grid.Column="15" Text="C" Classes="hex-header"/>
+                                <TextBlock Grid.Column="16" Text="D" Classes="hex-header"/>
+                                <TextBlock Grid.Column="17" Text="E" Classes="hex-header"/>
+                                <TextBlock Grid.Column="18" Text="F" Classes="hex-header"/>
+                                <TextBlock Grid.Column="20" Text="ASCII" Classes="hex-header"/>
+                            </Grid>
+                            <!-- Memory rows -->
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding MemoryRows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="60,Auto,8,Auto,Auto,Auto,Auto,Auto,Auto,Auto,8,Auto,Auto,Auto,Auto,Auto,Auto,Auto,8,*"
+                                                  Margin="0,1">
+                                                <!-- Address -->
+                                                <TextBlock Grid.Column="0"
+                                                           Text="{Binding Address}"
+                                                           Classes="hex-addr"/>
+                                                <!-- Hex bytes 0-7 -->
+                                                <TextBlock Grid.Column="2" Text="{Binding B0}" Classes="hex-byte"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding B1}" Classes="hex-byte"/>
+                                                <TextBlock Grid.Column="4" Text="{Binding B2}" Classes="hex-byte"/>
+                                                <TextBlock Grid.Column="5" Text="{Binding B3}" Classes="hex-byte"/>
+                                                <TextBlock Grid.Column="6" Text="{Binding B4}" Classes="hex-byte"/>
+                                                <TextBlock Grid.Column="7" Text="{Binding B5}" Classes="hex-byte"/>
+                                                <TextBlock Grid.Column="8" Text="{Binding B6}" Classes="hex-byte"/>
+                                                <TextBlock Grid.Column="9" Text="{Binding B7}" Classes="hex-byte"/>
+                                                <!-- Hex bytes 8-F -->
+                                                <TextBlock Grid.Column="11" Text="{Binding B8}" Classes="hex-byte"/>
+                                                <TextBlock Grid.Column="12" Text="{Binding B9}" Classes="hex-byte"/>
+                                                <TextBlock Grid.Column="13" Text="{Binding BA}" Classes="hex-byte"/>
+                                                <TextBlock Grid.Column="14" Text="{Binding BB}" Classes="hex-byte"/>
+                                                <TextBlock Grid.Column="15" Text="{Binding BC}" Classes="hex-byte"/>
+                                                <TextBlock Grid.Column="16" Text="{Binding BD}" Classes="hex-byte"/>
+                                                <TextBlock Grid.Column="17" Text="{Binding BE}" Classes="hex-byte"/>
+                                                <TextBlock Grid.Column="18" Text="{Binding BF}" Classes="hex-byte"/>
+                                                <!-- ASCII -->
+                                                <TextBlock Grid.Column="20"
+                                                           Text="{Binding Ascii}"
+                                                           Classes="hex-ascii"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
                 </DockPanel>
             </Border>
 
