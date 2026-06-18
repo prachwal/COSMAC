@@ -718,26 +718,26 @@ public class Cdp1802
 
     private void LDN(byte n)
     {
-        D = Memory[R[n]];
+        D = ReadMemory(R[n]);
         TotalCycles += 2;
     }
 
     private void LDA(byte n)
     {
-        D = Memory[R[n]];
+        D = ReadMemory(R[n]);
         R[n]++;
         TotalCycles += 2;
     }
 
     private void LDX()
     {
-        D = Memory[R[X]];
+        D = ReadMemory(R[X]);
         TotalCycles += 2;
     }
 
     private void LDXA()
     {
-        D = Memory[R[X]];
+        D = ReadMemory(R[X]);
         R[X]++;
         TotalCycles += 2;
     }
@@ -753,13 +753,13 @@ public class Cdp1802
 
     private void STR(byte n)
     {
-        Memory[R[n]] = D;
+        WriteMemory(R[n], D);
         TotalCycles += 2;
     }
 
     private void STXD()
     {
-        Memory[R[X]] = D;
+        WriteMemory(R[X], D);
         R[X]--;
         TotalCycles += 2;
     }
