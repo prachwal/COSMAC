@@ -17,7 +17,15 @@ public partial class MainWindow : Window
         LayoutUpdated += (s, e) =>
         {
             if (DataContext is Cdp1802ViewModel vm)
-                vm.IsCompact = Bounds.Width < 1040;
+            {
+                // Hysteresis (dead zone) so the side panels don't flip-flop and
+                // make the layout jump when the width hovers near the threshold.
+                double w = Bounds.Width;
+                if (!vm.IsCompact && w < 1000)
+                    vm.IsCompact = true;
+                else if (vm.IsCompact && w > 1080)
+                    vm.IsCompact = false;
+            }
         };
     }
 

@@ -87,19 +87,22 @@
                 BorderBrush="{DynamicResource BorderSubtleBrush}"
                 BorderThickness="0,1,0,0"
                 Padding="12,6">
-            <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto">
+            <!-- Fixed-width right cluster so the status bar does not reflow
+                 as numbers grow or the IPS panel toggles while running. -->
+            <Grid ColumnDefinitions="*,130,90,150,210">
                 <TextBlock Grid.Column="0"
                            Text="{Binding StatusMessage}"
                            Foreground="{DynamicResource TextPrimaryBrush}"
+                           TextTrimming="CharacterEllipsis"
                            VerticalAlignment="Center"/>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="16,0">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="16,0,0,0">
                     <TextBlock Text="State:" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding MachineState}"
                                Foreground="{DynamicResource AccentSecondaryBrush}"
                                FontWeight="SemiBold"
                                VerticalAlignment="Center"/>
                 </StackPanel>
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="16,0">
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="16,0,0,0">
                     <TextBlock Text="PC:" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"/>
                     <TextBlock Text="{Binding PcHex}"
                                Foreground="{DynamicResource HighlightPcTextBrush}"
@@ -405,21 +408,41 @@
                             </StackPanel>
 
                             <StackPanel Spacing="6">
-                                <TextBlock Text="UART Terminal" FontWeight="SemiBold"/>
-                                <TextBlock Text="Output:" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
-                                <TextBox IsReadOnly="True" Height="60" Text="{Binding UartConsole}"/>
-                                <TextBlock Text="Input:" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
-                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="UART Terminal" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="1"
+                                            Content="Clear"
+                                            Padding="10,2"
+                                            Command="{Binding ClearUartConsoleCommand}"/>
+                                </Grid>
+                                <TextBlock Text="Output (program TX):" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <ScrollViewer Height="80" VerticalScrollBarVisibility="Auto"
+                                              Background="{DynamicResource BackgroundEditorBrush}">
+                                    <TextBox IsReadOnly="True"
+                                             Classes="cosmac-editor"
+                                             FontSize="12"
+                                             TextWrapping="Wrap"
+                                             Text="{Binding UartConsole}"/>
+                                </ScrollViewer>
+                                <TextBlock Text="Input (sent to program RX — press Run first):"
+                                           FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                                     <TextBox x:Name="UartInputBox"
+                                             Grid.Column="0"
                                              PlaceholderText="Type hex (e.g. 48 65 6C 6C 6F) or ASCII"
-                                             Height="32"
-                                             Width="0" MinWidth="100"
-                                             HorizontalAlignment="Stretch"/>
-                                    <Button Content="Send"
+                                             Height="32">
+                                        <TextBox.KeyBindings>
+                                            <KeyBinding Gesture="Enter"
+                                                        Command="{Binding SendUartCommand}"
+                                                        CommandParameter="{Binding #UartInputBox.Text}"/>
+                                        </TextBox.KeyBindings>
+                                    </TextBox>
+                                    <Button Grid.Column="1"
+                                            Content="Send"
                                             Padding="16,0"
                                             Command="{Binding SendUartCommand}"
                                             CommandParameter="{Binding #UartInputBox.Text}"/>
-                                </StackPanel>
+                                </Grid>
                             </StackPanel>
 
                             <StackPanel Spacing="4">

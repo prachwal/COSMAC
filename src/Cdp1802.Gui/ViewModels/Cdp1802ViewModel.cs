@@ -386,7 +386,8 @@ public partial class Cdp1802ViewModel : ObservableObject
 
     public void RefreshPeripherals()
     {
-        UartStatus = $"TX 0x{_uart.LastTransmittedByte:X2} · {(_uart.HasTransmitted ? "sent" : "idle")}";
+        int rxPending = _uart.RxPending;
+        UartStatus = $"TX 0x{_uart.LastTransmittedByte:X2} · {(_uart.HasTransmitted ? "sent" : "idle")} · RX {rxPending}";
         TimerStatus = $"CNT {_timer.Counter} · CMP {_timer.CompareValue}";
         TimerCounter = (long)_timer.Counter;
         TimerCompare = _timer.CompareValue;
@@ -394,10 +395,11 @@ public partial class Cdp1802ViewModel : ObservableObject
         PixieStatus = $"{(_pixie.Read(0x02) != 0 ? "ON" : "OFF")} · {_pixie.Width}×{_pixie.Height}";
         KeyboardStatus = $"{_keyboard.Count} keys";
 
-        if (_uart.HasTransmitted)
-        {
-            UartConsole += $"{(char)_uart.LastTransmittedByte}";
-        }
+        // Append only newly transmitted bytes (drain) so the console does not
+        // get flooded with the same byte on every refresh tick.
+        string newTx = _uart.DrainTxOutput();
+        if (newTx.Length > 0)
+            UartConsole += newTx;
     }
 
     public void RefreshTraceLog()
@@ -810,13 +812,22 @@ public partial class Cdp1802ViewModel : ObservableObject
             foreach (byte b in bytes)
                 _uart.Receive(b);
 
-            StatusMessage = $"Sent {bytes.Length} byte(s) to UART";
+            StatusMessage = _running
+                ? $"Sent {bytes.Length} byte(s) to UART RX"
+                : $"Queued {bytes.Length} byte(s) — press Run so the program can read them";
             RefreshPeripherals();
         }
         catch (Exception ex)
         {
             StatusMessage = $"UART error: {ex.Message}";
         }
+    }
+
+    [RelayCommand]
+    private void ClearUartConsole()
+    {
+        UartConsole = "";
+        StatusMessage = "UART console cleared";
     }
 
     private static byte[] ParseUartInput(string input)
