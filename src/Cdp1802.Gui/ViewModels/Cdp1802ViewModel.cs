@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
@@ -787,6 +788,60 @@ public partial class Cdp1802ViewModel : ObservableObject
 
             HeatSnapshot = _cpu.AccessHeat;
         }
+    }
+
+    [RelayCommand]
+    private void SendUart(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return;
+
+        try
+        {
+            // Parse input: can be hex bytes (AA BB CC) or ASCII text
+            byte[] bytes = ParseUartInput(input);
+            if (bytes.Length == 0)
+            {
+                StatusMessage = "Invalid UART input";
+                return;
+            }
+
+            // Send each byte to UART RX
+            foreach (byte b in bytes)
+                _uart.Receive(b);
+
+            StatusMessage = $"Sent {bytes.Length} byte(s) to UART";
+            RefreshPeripherals();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"UART error: {ex.Message}";
+        }
+    }
+
+    private static byte[] ParseUartInput(string input)
+    {
+        var bytes = new List<byte>();
+
+        // Try hex format first (AA BB CC)
+        var hexTokens = input.Split(new[] { ' ', ',', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+        bool isHex = hexTokens.All(t => t.Length <= 2 && byte.TryParse(t, System.Globalization.NumberStyles.HexNumber, null, out _));
+
+        if (isHex && hexTokens.Length > 0)
+        {
+            // Parse as hex
+            foreach (var token in hexTokens)
+                if (byte.TryParse(token, System.Globalization.NumberStyles.HexNumber, null, out var b))
+                    bytes.Add(b);
+        }
+        else
+        {
+            // Parse as ASCII text
+            foreach (char c in input)
+                bytes.Add((byte)c);
+        }
+
+        return bytes.ToArray();
     }
 
     // Phase 3: Pixie

@@ -403,9 +403,22 @@
                                 </Border>
                             </StackPanel>
 
-                            <StackPanel>
+                            <StackPanel Spacing="6">
                                 <TextBlock Text="UART Terminal" FontWeight="SemiBold"/>
-                                <TextBox IsReadOnly="True" Height="80" Text="{Binding UartConsole}"/>
+                                <TextBlock Text="Output:" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <TextBox IsReadOnly="True" Height="60" Text="{Binding UartConsole}"/>
+                                <TextBlock Text="Input:" FontSize="10" Foreground="{DynamicResource TextMutedBrush}"/>
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBox x:Name="UartInputBox"
+                                             PlaceholderText="Type hex (e.g. 48 65 6C 6C 6F) or ASCII"
+                                             Height="32"
+                                             Width="0" MinWidth="100"
+                                             HorizontalAlignment="Stretch"/>
+                                    <Button Content="Send"
+                                            Padding="16,0"
+                                            Command="{Binding SendUartCommand}"
+                                            CommandParameter="{Binding #UartInputBox.Text}"/>
+                                </StackPanel>
                             </StackPanel>
 
                             <StackPanel Spacing="4">
